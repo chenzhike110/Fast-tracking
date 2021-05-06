@@ -21,6 +21,7 @@ def command_process(commandqueue):
     # s.bind((hostip_real[3], port)) #真机
     s.bind((hostip_real, port)) #模拟1
     s.listen(4)
+    upcommand = 10
 
     while True:
         try:
@@ -42,10 +43,13 @@ def command_process(commandqueue):
                 # 发送 eg：0,0,0,0
                 # number1：-1~1：-1表示最大速度下降；1表示最大速度上升
                 # number2：-1~1：-1表示最大速度向左yaw；1表示最大速度向右yaw
-                # number3：-1~1：-1表示最大速度向前；1表示最大速度向后
+                # number3：-1~1：1表示最大速度向前；-1表示最大速度向后
                 # number4：-1~1：-1表示最大速度向左；1表示最大速度向右
                 # cmd = input()
                 cmd = ','.join(map(str, command))+"\n"
+                # if upcommand > 0:
+                #     cmd = '1,0,0,0'
+                #     upcommand = upcommand - 1
                 conn.sendall(cmd.encode())  # 数据发送
                 # print(cmd.encode())
                 conn.close()
@@ -56,9 +60,9 @@ def command_process(commandqueue):
 
 def Control(x,y,centerX,centerY):
     # print(x,y,centerX,centerY)
-    commandx = 2*(centerX-x)/(2*centerX)
-    commandy = 2*(centerY-y)/(2*centerY)
-    command = np.array([0,0,-commandy,commandx])
+    commandx = 1.5*(centerX-x)/(2*centerX)
+    commandy = 1.5*(centerY-y)/(2*centerY)
+    command = np.array([0,0,commandy,-commandx])
     np.clip(command,-1,1)
     return command
     
@@ -71,8 +75,8 @@ controlProcess = torch.multiprocessing.Process(target=command_process, args=(com
 controlProcess.start()
 
 ap = argparse.ArgumentParser()
-# ap.add_argument("-v", "--video", type=str, default="rtmp://127.0.0.1:9999/live/test",
-#                 help="path to input video file")
+ap.add_argument("-v", "--video", type=str, default="rtmp://127.0.0.1:9999/live/test",
+                help="path to input video file")
 args = vars(ap.parse_args())
 
 initBB = None
@@ -101,7 +105,7 @@ while True:
     # frame = cv2.resize(frame, (W//4, H//4), interpolation=cv2.INTER_LINEAR)
     # (H, W) = frame.shape[:2]
     # frame = imutils.resize(frame, width=1024)
-    
+    # print(frame.shape)
     # check to see if we are currently tracking an object
     if initBB is not None:
         # grab the new bounding box coordinates of the object

@@ -4,17 +4,16 @@ import argparse
 import imutils
 import time
 import numpy as np
+import socket
 
 from imutils.video import VideoStream
 from imutils.video import FPS
 from PIL import Image
 
 from yolo.yolo import YOLO
-from siamfcpp.utils.crop import get_crop, get_subwindow_tracking
-from siamfcpp.utils.bbox import cxywh2xywh, xywh2cxywh, xyxy2cxywh
-from siamfcpp.utils.misc import imarray_to_tensor, tensor_to_numpy
 from siamfcpp.model_build import build_model
-from siamfcpp.tracking_utils import postprocess_box, postprocess_score, restrict_box, cvt_box_crop2frame
+from siamfcpp.multi_tracker import Multi_Tracker
+from siamfcpp.utils.bbox import cxywh2xywh, xywh2cxywh, xyxy2cxywh
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 import warnings
 
@@ -49,7 +48,7 @@ dataqueues = []
 resultqueues = []
 process = []
 track_object = {}
-process_num = 4
+process_num = 3
 scale_size = 1
 knn_updated = False
 
@@ -117,107 +116,17 @@ def command_process(commandqueue):
                 # print(cmd.encode())
                 conn.close()
             except:
-                print('timeout')
+                print('timeout', ','.join(map(str, command))+"\n")
             else:
                 print("send: ",cmd)
 
-
-def single_process(index, image, dataqueue, resultqueue):
-    device = torch.device("cuda")
-    model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl").to(device)
-    # parameters
-    avg_chans = np.mean(image, axis=(0, 1))
-    z_size = hyper_params['z_size']
-    x_size = hyper_params['x_size']
-    context_amount = hyper_params['context_amount']
-    phase = hyper_params['phase_init']
-    phase_track = hyper_params['phase_track']
-    score_size = (hyper_params['x_size'] -hyper_params['z_size']) // hyper_params['total_stride'] + 1 - hyper_params['num_conv3x3'] * 2
-    window = np.outer(np.hanning(score_size), np.hanning(score_size))
-    window = window.reshape(-1)
-    im_h, im_w = image.shape[0], image.shape[1]
-    total_num = 0
-    # property
-    # [state, features, lost]
-    tracking_index = {}
-    print("This is process",index)
-
-    def init(state, im_x, total_num):
-        print("init start")
-        for i in range(len(state)):
-            tracking_index[index*100+total_num+i] = [state[i]]
-            im_z_crop, _ = get_crop(im_x, state[i][:2], state[i][2:4], z_size, avg_chans=avg_chans, context_amount=context_amount, func_get_subwindow=get_subwindow_tracking)
-            array = torch.from_numpy(np.ascontiguousarray(im_z_crop.transpose(2, 0, 1)[np.newaxis, ...], np.float32)).to(device)
-            with torch.no_grad():
-                tracking_index[index*100+total_num+i].append(model(array,phase=phase))
-            tracking_index[index*100+total_num+i].append(0)
-    
-    def delete_node(j):
-        try: 
-            del tracking_index[j]
-        except Exception as error:
-            print("delete error",error)
-    
-    while True:
-        try: 
-            im_x, state, delete = dataqueue.get(timeout=1)
-        except Exception as error:
-            print(error)
-            continue
-        else:
-            if len(state) > 0:
-                init(state, im_x, total_num)
-                print("init success")
-                total_num += len(state)
-                continue
-            if len(delete) > 0:
-                delete_list = []
-                for i in delete:
-                    if i in tracking_index:
-                        print("delete",i)
-                        delete_node(i)
-            
-            result = []
-            for i in tracking_index.keys():
-                im_x_crop, scale_x = get_crop(im_x, tracking_index[i][0][:2], tracking_index[i][0][2:4], z_size, x_size=x_size, avg_chans=avg_chans,context_amount=context_amount, func_get_subwindow=get_subwindow_tracking)
-                array = torch.from_numpy(np.ascontiguousarray(im_x_crop.transpose(2, 0, 1)[np.newaxis, ...], np.float32)).to(device)
-                with torch.no_grad():
-                    score, box, cls, ctr, *args = model(array, *tracking_index[i][1], phase=phase_track)
-                
-                box = tensor_to_numpy(box[0])
-                score = tensor_to_numpy(score[0])[:, 0]
-                cls = tensor_to_numpy(cls[0])
-                ctr = tensor_to_numpy(ctr[0])
-                box_wh = xyxy2cxywh(box)
-
-                # lost goal
-                if score.max()<0.2:
-                    tracking_index[i][2] += 1
-                    result.append([cxywh2xywh(np.concatenate([tracking_index[i][0][:2], tracking_index[i][0][2:4]],axis=-1)), tracking_index[i][2]])
-                    continue
-                elif tracking_index[i][2] > 0:
-                    tracking_index[i][2] -= 1
-                best_pscore_id, pscore, penalty = postprocess_score(score, box_wh, tracking_index[i][0][2:4], scale_x, 0.4, window, 0.5)
-                # box post-processing
-                new_target_pos, new_target_sz = postprocess_box(best_pscore_id, score, box_wh, tracking_index[i][0][:2], tracking_index[i][0][2:4], scale_x, x_size, penalty, 0.8)
-                new_target_pos, new_target_sz = restrict_box(new_target_pos, new_target_sz, im_w, im_h, 10, 10)
-
-                # save underlying state
-                tracking_index[i][0] = np.append(new_target_pos, new_target_sz)
-
-                # return rect format
-                track_rect = cxywh2xywh(np.concatenate([new_target_pos, new_target_sz],axis=-1))
-                result.append([track_rect,tracking_index[i][2]])
-            
-            delete_list = []
-            for i in tracking_index.keys():
-                if tracking_index[i][2] > 10:
-                    delete_list.append(i)
-            
-            for i in delete_list:
-                delete_node(i)
-            
-            resultqueue.put([result, list(tracking_index.keys())])
+def Control(x,y,centerX,centerY):
+    # print(x,y,centerX,centerY)
+    commandx = 2*(centerX-x)/(2*centerX)
+    commandy = 2*(centerY-y)/(2*centerY)
+    command = np.array([0,0,-commandy,commandx])
+    np.clip(command,-1,1)
+    return command
 
 if __name__ == "__main__":
     torch.multiprocessing.set_start_method('forkserver', force=True)
@@ -236,13 +145,16 @@ if __name__ == "__main__":
     cv2.setMouseCallback('result',get_point)
     # Detector and Tracker initial
     yolo = YOLO()
+    Model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
+    Model.to(torch.device("cuda"))
+    Model.share_memory()
 
     # start process
     for i in range(process_num):
         dataqueues.append(torch.multiprocessing.Queue())
         resultqueues.append(torch.multiprocessing.Queue())
-        process.append(torch.multiprocessing.Process(target=single_process, args=(i, frame, dataqueues[-1], resultqueues[-1],)))
-        process[-1].start()
+        worker = Multi_Tracker(i, frame, dataqueues[-1], resultqueues[-1], Model)
+        worker.start()
 
     commandqueue = torch.multiprocessing.Queue()
     controlProcess = torch.multiprocessing.Process(target=command_process, args=(commandqueue,))
@@ -284,10 +196,8 @@ if __name__ == "__main__":
             fps.update()
             fps.stop()
         else:
-            starttime = time.time()
             img_new = Image.fromarray(np.uint8(frame))
             initBB = yolo.detect_image_without_draw(img_new)
-            starttime = time.time()
             for i in range(len(dataqueues)):
                 temp = initBB[int(len(initBB)/len(dataqueues)*i):int(len(initBB)/len(dataqueues)*(i+1))]
                 for j in range(len(temp)):
