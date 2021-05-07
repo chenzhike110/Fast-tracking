@@ -8,6 +8,8 @@ from imutils.video import VideoStream
 from imutils.video import FPS
 import socket
 
+from Videoq import VideoCapture
+
 from siamfcpp.model_build import build_model
 from siamfcpp.Tracker import SiamFCppTracker
 
@@ -60,8 +62,8 @@ def command_process(commandqueue):
 
 def Control(x,y,centerX,centerY):
     # print(x,y,centerX,centerY)
-    commandx = 1.5*(centerX-x)/(2*centerX)
-    commandy = 1.5*(centerY-y)/(2*centerY)
+    commandx = 1.5*(centerX-x)/(centerX)
+    commandy = 1.5*(centerY-y)/(centerY)
     command = np.array([0,0,commandy,-commandx])
     np.clip(command,-1,1)
     return command
@@ -86,7 +88,7 @@ if not args.get("video", False):
     vs = VideoStream(src=0).start()
 # otherwise, grab a reference to the video file
 else:
-    vs = cv2.VideoCapture(args["video"])
+    vs = VideoCapture(args["video"])
 # initialize the FPS throughput estimator
 fps = None
 show = True
@@ -95,7 +97,7 @@ while True:
     # grab the current frame, then handle if we are using a
     # VideoStream or VideoCapture object
     frame = vs.read()
-    frame = frame[1] if args.get("video", False) else frame
+    # frame = frame[1] if args.get("video", False) else frame
     # check to see if we have reached the end of the stream
     if frame is None:
         break

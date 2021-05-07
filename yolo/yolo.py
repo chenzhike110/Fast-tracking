@@ -28,7 +28,7 @@ class YOLO(object):
         "anchors_path"      : 'yolo/my_anchor.txt',
         "classes_path"      : 'yolo/my_classes.txt',
         "model_image_size"  : (608, 608, 3),
-        "confidence"        : 0.2,
+        "confidence"        : 0.5,
         "iou"               : 0.3,
         "cuda"              : False
     }

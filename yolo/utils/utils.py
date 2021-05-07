@@ -3,6 +3,7 @@ from __future__ import division
 import math
 import os
 import time
+import numba
 
 import numpy as np
 import torch
@@ -194,6 +195,7 @@ def yolo_correct_boxes(top, left, bottom, right, input_shape, image_shape):
     boxes *= np.concatenate([image_shape, image_shape],axis=-1)
     return boxes
 
+@numba.jit(nopython=True,fastmath=True)
 def bbox_iou(box1, box2, x1y1x2y2=True):
     """
         计算IOU
@@ -221,7 +223,6 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
     iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
     return iou
-
 
 def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     #----------------------------------------------------------#
@@ -309,7 +310,7 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
 
     return output
 
-
+@numba.jit(nopython=True,fastmath=True)
 def merge_bboxes(bboxes, cutx, cuty):
     merge_bbox = []
     for i in range(len(bboxes)):

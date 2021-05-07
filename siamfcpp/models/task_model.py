@@ -24,9 +24,9 @@ class SiamTrack(ModuleBase):
 
     def __init__(self, backbone, head, loss):
         super(SiamTrack, self).__init__()
-        self.basemodel = backbone
+        self.basemodel = backbone.eval()
         # head
-        self.head = head
+        self.head = head.eval()
         # loss
         self.loss = loss
 

@@ -4,6 +4,7 @@ from torch import multiprocessing
 from .utils.crop import get_crop, get_subwindow_tracking
 from .utils.bbox import cxywh2xywh, xywh2cxywh, xyxy2cxywh
 from .utils.misc import imarray_to_tensor, tensor_to_numpy
+from .model_build import build_model
 from .tracking_utils import postprocess_box, postprocess_score, restrict_box, cvt_box_crop2frame
 
 class Multi_Tracker(torch.multiprocessing.Process):
@@ -22,9 +23,11 @@ class Multi_Tracker(torch.multiprocessing.Process):
         phase_init="feature",
         phase_track="track",
     )
-    def __init__(self, index, image, dataqueue, resultqueue, shared_model):
+    def __init__(self, index, image, dataqueue, resultqueue):
         super(Multi_Tracker, self).__init__()
-        self.model = shared_model
+        self.model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
+        self.model.cuda()
+        self.model.eval()
         self.index = index
         self.tracking_index = {}
         self.device = torch.device("cuda")
@@ -52,7 +55,7 @@ class Multi_Tracker(torch.multiprocessing.Process):
                 self.tracking_index[self.index*100+self.total_num+i].append(self.model(array,phase=self.phase))
             self.tracking_index[self.index*100+self.total_num+i].append(0)
     
-    def delete_index(index):
+    def delete_index(self, index):
         try:
             del self.tracking_index[index]
         except Exception as err:
@@ -66,17 +69,20 @@ class Multi_Tracker(torch.multiprocessing.Process):
                 print(error)
                 continue
             else:
+
                 if len(state) > 0:
                     self.prepare(state, im_x)
                     print("init success")
                     self.total_num += len(state)
                     continue
-                if len(delete) > 0:
-                    delete_list = []
-                    for i in delete:
-                        if i in self.tracking_index:
-                            print("delete",i)
-                            self.delete_node(i)
+
+                delete_list = []
+                for i in self.tracking_index.keys():
+                    if self.tracking_index[i][2] > 10 or i in delete:
+                        delete_list.append(i)
+                for i in delete_list:
+                    self.delete_index(i)
+                    print("delete",i)
                 
                 result = []
                 for i in self.tracking_index.keys():
@@ -110,13 +116,7 @@ class Multi_Tracker(torch.multiprocessing.Process):
                     track_rect = cxywh2xywh(np.concatenate([new_target_pos, new_target_sz],axis=-1))
                     result.append([track_rect, self.tracking_index[i][2]])
                 
-                delete_list = []
-                for i in self.tracking_index.keys():
-                    if self.tracking_index[i][2] > 10:
-                        delete_list.append(i)
-                
-                for i in delete_list:
-                    self.delete_node(i)
-                
                 self.resultqueue.put([result, list(self.tracking_index.keys())])
+                # print("process",self.index,"send: ",list(self.tracking_index.keys()))
+            torch.cuda.empty_cache() 
             
