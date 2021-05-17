@@ -13,15 +13,17 @@ print('host ip', hostip_real)
 port = 6666  # Arbitrary non-privileged port
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.settimeout(1)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 # s.bind((hostip_real[3], port)) #真机
 s.bind((hostip_real, port)) #模拟1
 s.listen(4)
+i = 3
 while True:
     try:
         conn, addr = s.accept()
         conn.settimeout(1)
         # cmd = "0,0,0,0\n"
-        data = conn.recv(1024)
+        data = conn.recv(65536)
         if not data:
             print('no data')
         data = data.decode().split(',')
@@ -34,7 +36,16 @@ while True:
         # number3：-1~1：-1表示最大速度向前；1表示最大速度向后
         # number4：-1~1：-1表示最大速度向左；1表示最大速度向右
         cmd = input()
-        # cmd = "0,0,-1,0\n"
+        if cmd == 'a':
+            cmd = "0,0,0,1,1000\n"
+        elif cmd == "w":
+            cmd = "0,0,1,0,1000\n"
+        elif cmd == "d":
+            cmd = "0,0,0,-1,1000\n"
+        else:
+            cmd = "0,0,-1,0,1000\n"
+    
+        print(cmd)
         conn.sendall(cmd.encode())  # 数据发送
         # print(cmd.encode())
         conn.close()

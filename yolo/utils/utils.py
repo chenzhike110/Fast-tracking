@@ -168,7 +168,7 @@ def letterbox_image(image, size):
     nh = int(ih*scale)
 
     image = image.resize((nw,nh), Image.BICUBIC)
-    new_image = Image.new('RGB', size, (128,128,128))
+    new_image = Image.new('RGBA', size, (128,128,128))
     new_image.paste(image, ((w-nw)//2, (h-nh)//2))
     return new_image
 
@@ -195,7 +195,7 @@ def yolo_correct_boxes(top, left, bottom, right, input_shape, image_shape):
     boxes *= np.concatenate([image_shape, image_shape],axis=-1)
     return boxes
 
-@numba.jit(nopython=True,fastmath=True)
+# @numba.jit(nopython=True,fastmath=True)
 def bbox_iou(box1, box2, x1y1x2y2=True):
     """
         计算IOU

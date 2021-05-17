@@ -15,19 +15,21 @@ from siamfcpp.Tracker import SiamFCppTracker
 
 def command_process(commandqueue):
     hostname = socket.gethostname() #真机
-    hostip_real = socket.gethostbyname(hostname+".local") #真机
+    # hostip_real = socket.gethostbyname(hostname+".local") #真机
+    hostip_real = "192.168.43.109"
     print('host ip', hostip_real)
     port = 6666  # Arbitrary non-privileged port
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.settimeout(1)
     # s.bind((hostip_real[3], port)) #真机
     s.bind((hostip_real, port)) #模拟1
     s.listen(4)
-    upcommand = 10
+    # upcommand = 10
 
     while True:
         try:
-            command = commandqueue.get()
+            command = commandqueue.get(False)
         except:
             continue
         else:
@@ -48,7 +50,7 @@ def command_process(commandqueue):
                 # number3：-1~1：1表示最大速度向前；-1表示最大速度向后
                 # number4：-1~1：-1表示最大速度向左；1表示最大速度向右
                 # cmd = input()
-                cmd = ','.join(map(str, command))+"\n"
+                cmd = ','.join(map(str, command))+",1000\n"
                 # if upcommand > 0:
                 #     cmd = '1,0,0,0'
                 #     upcommand = upcommand - 1
@@ -65,7 +67,7 @@ def Control(x,y,centerX,centerY):
     commandx = 1.5*(centerX-x)/(centerX)
     commandy = 1.5*(centerY-y)/(centerY)
     command = np.array([0,0,commandy,-commandx])
-    np.clip(command,-1,1)
+    command = np.clip(command,-1,1)
     return command
     
 Model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
@@ -92,6 +94,7 @@ else:
 # initialize the FPS throughput estimator
 fps = None
 show = True
+sendtime = 0
 # loop over frames from the video stream
 while True:
     # grab the current frame, then handle if we are using a
@@ -140,8 +143,10 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
-        command = Control(x+w/2,y+h/2,W/2,H/2)
-        commandqueue.put(command)
+        if success and (time.time() - sendtime) > 0.35:
+            command = Control(x+w/2,y+h/2,W/2,H/2)
+            commandqueue.put(command)
+            sendtime = time.time()
     else:
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(1) & 0xFF

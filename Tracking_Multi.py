@@ -16,12 +16,31 @@ from siamfcpp.utils.bbox import cxywh2xywh, xywh2cxywh, xyxy2cxywh
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 import warnings
 from ORBmin import KNNClassifier,get_data_from_video,mini_img,init_get_video,len_all
-
+from yolo.utils.utils import bbox_iou 
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
 print(cv2.__version__)
+
+def get_new(image):
+    # img_origin = image.copy()
+    # image = cv2.resize(image,(math.ceil(image.shape[1]/2),math.ceil(image.shape[0]/2)))
+    # has_offside = 0
+    th = 30  # 边缘检测后大于th的才算边界
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
+    # gray_origin = cv2.cvtColor(img_origin, cv2.COLOR_BGRA2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    x = cv2.Sobel(gray, cv2.CV_16S, 1, 0)  # x方向梯度
+    y = cv2.Sobel(gray, cv2.CV_16S, 0, 1)  # y方向梯度
+    absX = cv2.convertScaleAbs(x)  # 转回uint8
+    absY = cv2.convertScaleAbs(y)
+    edges = cv2.addWeighted(absX, 0.5, absY, 0.5, 0) # 各0.5的权重将两个梯度叠加
+    edges = edges[:,:,np.newaxis]
+    image = np.concatenate((image, edges),axis=-1)
+    return image
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video", type=str, default="../SRTP/video/video5.mp4",
@@ -31,6 +50,7 @@ args = vars(ap.parse_args())
 # multiprocess
 dataqueues = []
 resultqueues = []
+tracking_number = []
 process = []
 track_object = {}
 process_num = 3
@@ -113,12 +133,26 @@ def Control(x,y,centerX,centerY):
     np.clip(command,-1,1)
     return command
 
+# @number.jit()
+def check_box(initBB):
+    tracking_xy = np.array([value[0] for value in track_object.values()])
+    if len(tracking_xy) == 0:
+        return initBB
+    add_box = []
+    for i in range(len(initBB)):
+        boundingbox = cxywh2xywh(initBB[i][0:4])
+        iou = bbox_iou(np.array([boundingbox]), tracking_xy, False)
+        if (iou > 0.8).any():
+            continue
+        add_box.append(boundingbox)
+    return add_box
+
 if __name__ == "__main__":
     KNN=None
     videoname=args['video'].split('/')[-1]
     model_path='knn_class'
     num_of_photo=25
-    classes_name=['plyaer','ball','team1','team2','judger']#0,1,2,3,4
+    classes_name=['player','ball','team1','team2','judger']#0,1,2,3,4
     padding=10
     update_data=False
     # 单个bao
@@ -141,6 +175,7 @@ if __name__ == "__main__":
     torch.multiprocessing.set_start_method(method='spawn')
     # start process
     for i in range(process_num):
+        tracking_number.append(0)
         dataqueues.append(torch.multiprocessing.Queue())
         resultqueues.append(torch.multiprocessing.Queue())
         worker = Multi_Tracker(i, frame, dataqueues[-1], resultqueues[-1])
@@ -150,14 +185,23 @@ if __name__ == "__main__":
     controlProcess = torch.multiprocessing.Process(target=command_process, args=(commandqueue,))
     controlProcess.start()
 
+    # balldatequeue=torch.multiprocessing.Queue()
+    # ballresultqueue=torch.multiprocessing.Queue()
+    # ballTrack=torch.multiprocessing.Process(target=ball_track,args=(balldatequeue,))
+    # ballTrack.start()
+
+
     yolo = YOLO()
+    framecount = -1
 
     while True:
         frame = vs.read()
         frame = frame[1] if args.get("video", False) else frame
         frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
+        framecount += 1
         if frame is None:
             break
+        
         # update the FPS counter
         
         if initBB is not None:
@@ -212,13 +256,16 @@ if __name__ == "__main__":
             fps.stop()
             # print(fps.fps())
             
-        else:
+        if framecount % 100 == 0:
+            # img_new = get_new(frame)
             img_new = Image.fromarray(np.uint8(frame))
             initBB = yolo.detect_image_without_draw(img_new)
+            initBB = check_box(initBB)
             for i in range(len(dataqueues)):
                 temp = initBB[int(len(initBB)/len(dataqueues)*i):int(len(initBB)/len(dataqueues)*(i+1))]
                 for j in range(len(temp)):
-                    track_object[i*100+j] = [cxywh2xywh(temp[j][0:4]),temp[j][-1]]
+                    track_object[i*100+j+tracking_number[i]] = [temp[j][0:4],temp[j][-1]]
+                    tracking_number[i] += 1
                 dataqueues[i].put((frame, temp, [])) 
             fps = FPS().start()
 
