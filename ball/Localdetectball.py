@@ -110,7 +110,7 @@ def ball_score(gray_test,test,ground_truth,im_x,pos,debug=False):
     # xywh = np.array(list(map(np.array,xywh)))
     # wh = np.min(temp[:,0]/temp[:,1],temp[:,1]/temp[:,0])
     # print(temp.shape)
-    if debug==False:
+    if debug==True:
         contours_person=tqdm(contours_person)
     for d in tqdm(contours_person):
         if d.shape[0]<10:

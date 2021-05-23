@@ -3,7 +3,6 @@ model_store
 *.swo
 *.pyc
 *.pth
-*.png
 *.jpg
 *.pkl
 core

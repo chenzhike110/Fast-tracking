@@ -22,6 +22,7 @@ from ball.Localdetectball import Localdective_by_background,RegionDetectBall
 
 from siamfcpp.Tracker import SiamFCppTracker
 from siamfcpp.model_build import build_model
+from edgeline import offside_dectet 
 
 #from tracking_camera import init_siam,initBBinit,siam_follow
 
@@ -123,8 +124,9 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
     while True:
         # 读取
         if cap==None:
+            print("get ball")
             try:
-                test,tracking_object=balldataqueue.get(timeout=1)
+                test,tracking_object=balldataqueue.get()
             except Exception as Err:
                 tracking_object=None
                 print(Err)
@@ -134,6 +136,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
             test = cv.resize(test, (1920,1080))
         pred=dective_by_background(test,ground_truth,tracking_object=tracking_object)   #背景检测法
         if pred is None:
+            ballresultqueue.put([pred,None])
             continue
         SiamTracker.init(test,pred)
         Kalman=KalmanBoxTracker(np.array(pred))
@@ -141,7 +144,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
         if debug:
             print("background 1",pred)
         if pred!=None and cap==None:
-            ballresultqueue.put(pred)
+            ballresultqueue.put([pred,None])
         if test is not None and cap!=None:
             try:
                 x,y,w,h=pred
@@ -154,11 +157,12 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
         # 进入正式循环
         count=1
         while True:
+            k=None
             goon=True
             # 读取
             if cap==None:
                 try:
-                    test,tracking_object=balldataqueue.get(timeout=1)
+                    test,tracking_object=balldataqueue.get()
                     if test.shape[1]!=1080:
                         test = cv.resize(test, (1920,1080))
                 except Exception as Err:
@@ -306,12 +310,11 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                                 if debug:
                                     print("kalman",pred,"siam:yes but sim wrong RD:Yes but check wrong->Kalman")#检测区域检测
 
-            #touch=ball_touch(track_it,track_object=tracking_object)
+            touch=ball_touch(track_it,track_object=None)
             #print('ball_cos:',touch,"#"*30)
-            #if touch:
-                
+
             if cap==None:
-                ballresultqueue.put(pred)
+                ballresultqueue.put([pred,touch])
             else:
                 if test is not None:
                     try:
@@ -331,32 +334,32 @@ if __name__=='__main__':
         #'1':[[230,145,150,378],0],
         #'2':[[300,300,500,500],2]
     }
-    # balldatequeue=torch.multiprocessing.Queue()
-    # ballresultqueue=torch.multiprocessing.Queue()
-    # ballTrack=torch.multiprocessing.Process(target=ball_track,args=(balldatequeue,ballresultqueue))
-    # ballTrack.start()
-    ball_track(None,None,cap)
+    balldatequeue=torch.multiprocessing.Queue()
+    ballresultqueue=torch.multiprocessing.Queue()
+    ballTrack=torch.multiprocessing.Process(target=ball_track,args=(balldatequeue,ballresultqueue))
+    ballTrack.start()
+    # ball_track(None,None,cap)
     
-    # while cap:
-    #     print('biglooping')
-    #     r,f=cap.read()
-    #     f = cv.resize(f, (1920,1080))
-    #     balldatequeue.put([f,box])
+    while cap:
+        print('biglooping')
+        r,f=cap.read()
+        f = cv.resize(f, (1920,1080))
+        balldatequeue.put([f,box])
         
-    #     try:
-    #         yyy=ballresultqueue.get()
-    #     except RuntimeError:
-    #         print("lost")
-    #     except Exception as Err:
-    #         print('111')
-    #     else:
-    #         if yyy is not None:
-    #             x,y,w,h=yyy[0],yyy[1],yyy[2],yyy[3]
-    #     try:
-    #         cv.rectangle(f,(x,y),(x+w,y+h),[0,0,255],3)
-    #         print((x,y,w,h))
-    #     except Exception as E:
-    #         print(E)
+        try:
+            yyy=ballresultqueue.get()
+        except RuntimeError:
+            print("lost")
+        except Exception as Err:
+            print('111')
+        else:
+            if yyy is not None:
+                x,y,w,h=yyy[0],yyy[1],yyy[2],yyy[3]
+        try:
+            cv.rectangle(f,(x,y),(x+w,y+h),[0,0,255],3)
+            print((x,y,w,h))
+        except Exception as E:
+            print(E)
             
-    #     cv.imshow('ooo',f)
-    #     cv.waitKey(1)
+        cv.imshow('ooo',f)
+        cv.waitKey(1)

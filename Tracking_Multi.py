@@ -54,7 +54,7 @@ resultqueues = []
 tracking_number = []
 process = []
 track_object = {}
-process_num = 3
+process_num = 2
 scale_size = 1
 knn_updated = False
 
@@ -169,8 +169,9 @@ if __name__ == "__main__":
 
     frame = vs.read()
     frame = frame[1] if args.get("video", False) else frame
-    #frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
-    frame = imutils.resize(frame, height=1920, width=1080)
+    # frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
+    frame = imutils.resize(frame, width=1920, height=1080)
+    # frame = cv2.resize(frame, (1920,1080))
     initBB = None
 
     cv2.namedWindow('result')
@@ -203,10 +204,11 @@ if __name__ == "__main__":
         if frame is None:
             break
         #frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
-        frame = imutils.resize(frame, height=1920, width=1080)
+        # frame = cv2.resize(frame, (1920,1080))
+        frame = imutils.resize(frame, width=1920, height=1080)
         framecount += 1
 
-        balldatequeue.put((frame,track_object))
+        balldatequeue.put((frame,None))
         # update the FPS counter
     
         if initBB is not None:
@@ -252,13 +254,6 @@ if __name__ == "__main__":
                 KNN=KNNClassifier(video_name=videoname,modelpath=model_path)
                 knn_updated=False
 
-            try:
-                (x,y,w,h)=ballresultqueue.get()
-            except Exception as Err:
-                print(Err)
-            else:
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 3)
-
             for i in track_object.keys():
                 (x, y, w, h) = [int(v) for v in track_object[i][0]]
 
@@ -268,6 +263,58 @@ if __name__ == "__main__":
             fps.update()
             fps.stop()
             # print(fps.fps())
+        
+        try:
+            print("get from ball")
+            pred,touch=ballresultqueue.get()
+            x,y,w,h=pred
+        except Exception as Err:
+            print(Err)
+        else:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 3)
+            cls_ball=0
+            mindis=1e6
+            players={}
+            last={}
+            # 得到不同类人的排序，得到当前最近人的球权
+            for key,value in tracking_object.items():
+                [x,y,w,h],cla=value
+                if cla not in players.keys():
+                    players[str(cla)]=[[x,y]]
+
+                else:
+                    players[str(cla)].append([x,y])
+        
+                dis=((pred[0]+pred[2]/2)-(x+w/2))**2+((pred[1]+pred[3]/2)-(y+h/2))**2
+                if dis<mindis:
+                    mindis=dis
+                    cls_ball=str(cla)
+            # 球在cls_ball的手里
+            # 按照y排列
+            
+            for key in players[key]:
+                sorted(players[key],key=lambda x:x[1])
+            # 只有两队，取对面队的最下方值
+            if cls_ball=="2":
+                dfplayer=np.array(players["3"][0])
+            else:
+                dfplayer=np.array(players["2"][0])
+            ofplayers=np.array(players[cls_ball])
+
+            k=offside_dectet(test,ofplayers,dfplayer)
+            if k is not None:
+                for ofplayer in ofplayers:
+                    ofplayer_x = ofplayer[0]
+                    ofplayer_y = ofplayer[1]
+                    # 画出越位线
+                    y1_draw = int(dfplayer_y - k * dfplayer_x)
+                    y2_draw = int(k * gray_origin.shape[1] - k * dfplayer_x + dfplayer_y)
+                    if debug==1:
+                        cv2.line(frame, (0, y1_draw), (gray_origin.shape[1], y2_draw), (0, 255, 0), 1)
+                        # 画出防守球员和进攻球员
+                        cv2.circle(frame, (dfplayer_x, dfplayer_y), 5, (255, 0, 0))
+                        cv2.circle(frame, (ofplayer_x, ofplayer_y), 5, (255, 0, 0))
+        print("ball over")
             
         if framecount % 100 == 0:
             # img_new = get_new(frame)
