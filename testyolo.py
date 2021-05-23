@@ -5,7 +5,7 @@ import cv2
 from yolo.yolo import YOLO
 import numpy as np
 import imutils
-from edge import get_new
+# from edge import get_new
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -20,9 +20,9 @@ if __name__ == "__main__":
         frame = vs.read()
         frame = frame[1] if args.get("video", False) else frame
         frame = imutils.resize(frame, height=1080//2, width=1920//2)
-        frame = get_new(frame)
+        # frame = get_new(frame)
         # print(frame.shape)
-        # frame = cv2.resize(frame, (frame.shape[1]//2,frame.shape[0]//2))
+        frame = cv2.resize(frame, (frame.shape[1]//2,frame.shape[0]//2))
         frame = Image.fromarray(np.uint8(frame))
         print(np.array(frame).shape)
         frame = model.detect_image(frame)

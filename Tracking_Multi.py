@@ -141,9 +141,11 @@ def check_box(initBB):
     add_box = []
     for i in range(len(initBB)):
         boundingbox = cxywh2xywh(initBB[i][0:4])
-        iou = bbox_iou(np.array([boundingbox]), tracking_xy, False)
-        if (iou > 0.8).any():
+        iou = bbox_iou(torch.Tensor([boundingbox]), torch.Tensor(tracking_xy), False)
+        if (iou > 0.1).any():
             continue
+        boundingbox = xywh2cxywh(boundingbox)
+        boundingbox = np.append(boundingbox,0)
         add_box.append(boundingbox)
     return add_box
 
@@ -241,10 +243,10 @@ if __name__ == "__main__":
                         except KeyError:
                             print("main deleted but process not", j)
                             continue
-            if knn_updated:
-                print('init KNNClassifier')
-                KNN=KNNClassifier(video_name=videoname,modelpath=model_path)
-                knn_updated=False
+            # if knn_updated:
+            #     print('init KNNClassifier')
+            #     KNN=KNNClassifier(video_name=videoname,modelpath=model_path)
+            #     knn_updated=False
 
             for i in track_object.keys():
                 (x, y, w, h) = [int(v) for v in track_object[i][0]]
@@ -264,7 +266,7 @@ if __name__ == "__main__":
             for i in range(len(dataqueues)):
                 temp = initBB[int(len(initBB)/len(dataqueues)*i):int(len(initBB)/len(dataqueues)*(i+1))]
                 for j in range(len(temp)):
-                    track_object[i*100+j+tracking_number[i]] = [temp[j][0:4],temp[j][-1]]
+                    track_object[i*100+tracking_number[i]] = [temp[j][0:4],temp[j][-1]]
                     tracking_number[i] += 1
                 dataqueues[i].put((frame, temp, [])) 
             fps = FPS().start()
