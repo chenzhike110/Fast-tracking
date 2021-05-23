@@ -230,7 +230,7 @@ class SiamFCppTracker(object):
             self._state['cls'] = cls
             self._state['ctr'] = ctr
 
-        return new_target_pos, new_target_sz
+        return new_target_pos, new_target_sz,target_pos
 
     def update(self, im):
         # get track
@@ -238,7 +238,7 @@ class SiamFCppTracker(object):
         target_pos_prior, target_sz_prior = self._state['state']
         features = self._state['features']
         # forward inference to estimate new state
-        target_pos, target_sz = self.track(im,
+        target_pos, target_sz,pos= self.track(im,
                                            target_pos_prior,
                                            target_sz_prior,
                                            features,
@@ -250,7 +250,7 @@ class SiamFCppTracker(object):
         # return rect format
         track_rect = cxywh2xywh(np.concatenate([target_pos, target_sz],
                                                axis=-1))
-        return track_rect,self._state['is_lost']
+        return track_rect,self._state['is_lost'],pos
 
     # ======== tracking processes ======== #
 

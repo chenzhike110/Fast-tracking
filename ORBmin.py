@@ -35,8 +35,8 @@ class KNNClassifier:
 
     def prediction(self,box,frame,video_name,classes_name,padding,save_img_recode=False,k=5):
         img=frame[max(int(box[1]-padding),0):min(int(box[1]+box[3]+padding),frame.shape[0]),max(int(box[0]-padding),0):min(int(box[0]+box[2]+padding),frame.shape[1])]
-        cv.imshow('rrr',img)
-        cv.waitKey(0)
+        # cv.imshow('rrr',img)
+        # cv.waitKey(0)
 
         m,mat,box=self.main_color_moment(img)
         distancelist=[]
@@ -106,8 +106,8 @@ class KNNClassifier:
             R=cv.erode(R,(19,19))
         except Exception as Err:
             print(Err)
-            cv.imshow('wrong',img)
-            cv.waitKey(0)
+            # cv.imshow('wrong',img)
+            # cv.waitKey(0)
 
             #cv.destroyAllWindows()
         return xmin,xmax,ymin,ymax,R

@@ -17,33 +17,34 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 import warnings
 from ORBmin import KNNClassifier,get_data_from_video,mini_img,init_get_video,len_all
 from yolo.utils.utils import bbox_iou 
+from easy_ball_track import ball_track
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
 print(cv2.__version__)
 
-def get_new(image):
-    # img_origin = image.copy()
-    # image = cv2.resize(image,(math.ceil(image.shape[1]/2),math.ceil(image.shape[0]/2)))
-    # has_offside = 0
-    th = 30  # 边缘检测后大于th的才算边界
+# def get_new(image):
+#     # img_origin = image.copy()
+#     # image = cv2.resize(image,(math.ceil(image.shape[1]/2),math.ceil(image.shape[0]/2)))
+#     # has_offside = 0
+#     th = 30  # 边缘检测后大于th的才算边界
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
-    # gray_origin = cv2.cvtColor(img_origin, cv2.COLOR_BGRA2GRAY)
-    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+#     gray = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
+#     # gray_origin = cv2.cvtColor(img_origin, cv2.COLOR_BGRA2GRAY)
+#     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    x = cv2.Sobel(gray, cv2.CV_16S, 1, 0)  # x方向梯度
-    y = cv2.Sobel(gray, cv2.CV_16S, 0, 1)  # y方向梯度
-    absX = cv2.convertScaleAbs(x)  # 转回uint8
-    absY = cv2.convertScaleAbs(y)
-    edges = cv2.addWeighted(absX, 0.5, absY, 0.5, 0) # 各0.5的权重将两个梯度叠加
-    edges = edges[:,:,np.newaxis]
-    image = np.concatenate((image, edges),axis=-1)
-    return image
+#     x = cv2.Sobel(gray, cv2.CV_16S, 1, 0)  # x方向梯度
+#     y = cv2.Sobel(gray, cv2.CV_16S, 0, 1)  # y方向梯度
+#     absX = cv2.convertScaleAbs(x)  # 转回uint8
+#     absY = cv2.convertScaleAbs(y)
+#     edges = cv2.addWeighted(absX, 0.5, absY, 0.5, 0) # 各0.5的权重将两个梯度叠加
+#     edges = edges[:,:,np.newaxis]
+#     image = np.concatenate((image, edges),axis=-1)
+#     return image
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video", type=str, default="../SRTP/video/video5.mp4",
+ap.add_argument("-v", "--video", type=str, default="./video/offside1.mp4",
                 help="path to input video file")
 args = vars(ap.parse_args())
 
@@ -168,7 +169,8 @@ if __name__ == "__main__":
 
     frame = vs.read()
     frame = frame[1] if args.get("video", False) else frame
-    frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
+    #frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
+    frame = imutils.resize(frame, height=1920, width=1080)
     initBB = None
 
     cv2.namedWindow('result')
@@ -187,11 +189,10 @@ if __name__ == "__main__":
     controlProcess = torch.multiprocessing.Process(target=command_process, args=(commandqueue,))
     controlProcess.start()
 
-    # balldatequeue=torch.multiprocessing.Queue()
-    # ballresultqueue=torch.multiprocessing.Queue()
-    # ballTrack=torch.multiprocessing.Process(target=ball_track,args=(balldatequeue,))
-    # ballTrack.start()
-
+    balldatequeue=torch.multiprocessing.Queue()
+    ballresultqueue=torch.multiprocessing.Queue()
+    ballTrack=torch.multiprocessing.Process(target=ball_track,args=(balldatequeue,ballresultqueue))
+    ballTrack.start()
 
     yolo = YOLO()
     framecount = -1
@@ -199,14 +200,17 @@ if __name__ == "__main__":
     while True:
         frame = vs.read()
         frame = frame[1] if args.get("video", False) else frame
-        frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
-        framecount += 1
         if frame is None:
             break
-        
+        #frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
+        frame = imutils.resize(frame, height=1920, width=1080)
+        framecount += 1
+
+        balldatequeue.put((frame,track_object))
         # update the FPS counter
-        
+    
         if initBB is not None:
+            
             for i in range(len(dataqueues)):
                 dataqueues[i].put((frame, [], []))
             for i in range(len(resultqueues)):
@@ -243,10 +247,17 @@ if __name__ == "__main__":
                         except KeyError:
                             print("main deleted but process not", j)
                             continue
-            # if knn_updated:
-            #     print('init KNNClassifier')
-            #     KNN=KNNClassifier(video_name=videoname,modelpath=model_path)
-            #     knn_updated=False
+            if knn_updated:
+                print('init KNNClassifier')
+                KNN=KNNClassifier(video_name=videoname,modelpath=model_path)
+                knn_updated=False
+
+            try:
+                (x,y,w,h)=ballresultqueue.get()
+            except Exception as Err:
+                print(Err)
+            else:
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 3)
 
             for i in track_object.keys():
                 (x, y, w, h) = [int(v) for v in track_object[i][0]]
