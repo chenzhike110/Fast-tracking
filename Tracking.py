@@ -115,7 +115,7 @@ while True:
     if initBB is not None:
         # grab the new bounding box coordinates of the object
         #(success, box) = pipeline.update(frame)
-        box,fail = tracker.update(frame)
+        box,fail,_ = tracker.update(frame)
         success=not fail
         # check to see if the tracking was a success
         if success and show:

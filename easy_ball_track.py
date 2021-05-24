@@ -115,6 +115,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
     #break_down=False
     count_lost_frame=1
     debug=True
+    touch=False
 
     Model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
     SiamTracker=SiamFCppTracker()
@@ -136,7 +137,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
             test = cv.resize(test, (1920,1080))
         pred=dective_by_background(test,ground_truth,tracking_object=tracking_object)   #背景检测法
         if pred is None:
-            ballresultqueue.put([pred,None])
+            ballresultqueue.put([pred,touch])
             continue
         SiamTracker.init(test,pred)
         Kalman=KalmanBoxTracker(np.array(pred))
@@ -144,7 +145,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
         if debug:
             print("background 1",pred)
         if pred!=None and cap==None:
-            ballresultqueue.put([pred,None])
+            ballresultqueue.put([pred,touch])
         if test is not None and cap!=None:
             try:
                 x,y,w,h=pred

@@ -250,7 +250,7 @@ class SiamFCppTracker(object):
         # return rect format
         track_rect = cxywh2xywh(np.concatenate([target_pos, target_sz],
                                                axis=-1))
-        return track_rect,self._state['is_lost'],pos
+        return track_rect,self._state['is_lost'], pos
 
     # ======== tracking processes ======== #
 

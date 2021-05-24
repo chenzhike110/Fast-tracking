@@ -157,7 +157,7 @@ if __name__ == "__main__":
     num_of_photo=25
     classes_name=['player','ball','team1','team2','judger']#0,1,2,3,4
     padding=10
-    update_data=False
+    update_data=True
     # 单个bao
     
     knn_updated=init_get_video(classname=classes_name[2:],video_name=videoname,num_of_photo=num_of_photo, path=model_path,update_data=update_data)
@@ -272,48 +272,45 @@ if __name__ == "__main__":
             print(Err)
         else:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 3)
-            cls_ball=0
-            mindis=1e6
-            players={}
-            last={}
-            # 得到不同类人的排序，得到当前最近人的球权
-            for key,value in tracking_object.items():
-                [x,y,w,h],cla=value
-                if cla not in players.keys():
-                    players[str(cla)]=[[x,y]]
+            # if touch:
+            #     cls_ball=0
+            #     mindis=1e6
+            #     players={}
+            #     # 得到不同类人的排序，得到当前最近人的球权
+            #     for key,value in track_object.items():
+            #         [x,y,w,h],cla=value
+            #         if cla not in players.keys():
+            #             players[str(cla)]=[[x,y]]
+            #         else:
+            #             players[str(cla)].append([x,y])
+            #         dis=((pred[0]+pred[2]/2)-(x+w/2))**2+((pred[1]+pred[3]/2)-(y+h/2))**2
+            #         if dis<mindis:
+            #             mindis=dis
+            #             cls_ball=str(cla)
+            #     # 球在cls_ball的手里
+            #     # 按照y排列
+            # for key in players[key]:
+            #     sorted(players[key],key=lambda x:x[1])
+            # # 只有两队，取对面队的最下方值
+            # if cls_ball=="2":
+            #     dfplayer=np.array(players["3"][0])
+            # else:
+            #     dfplayer=np.array(players["2"][0])
+            # ofplayers=np.array(players[cls_ball])
 
-                else:
-                    players[str(cla)].append([x,y])
-        
-                dis=((pred[0]+pred[2]/2)-(x+w/2))**2+((pred[1]+pred[3]/2)-(y+h/2))**2
-                if dis<mindis:
-                    mindis=dis
-                    cls_ball=str(cla)
-            # 球在cls_ball的手里
-            # 按照y排列
-            
-            for key in players[key]:
-                sorted(players[key],key=lambda x:x[1])
-            # 只有两队，取对面队的最下方值
-            if cls_ball=="2":
-                dfplayer=np.array(players["3"][0])
-            else:
-                dfplayer=np.array(players["2"][0])
-            ofplayers=np.array(players[cls_ball])
-
-            k=offside_dectet(test,ofplayers,dfplayer)
-            if k is not None:
-                for ofplayer in ofplayers:
-                    ofplayer_x = ofplayer[0]
-                    ofplayer_y = ofplayer[1]
-                    # 画出越位线
-                    y1_draw = int(dfplayer_y - k * dfplayer_x)
-                    y2_draw = int(k * gray_origin.shape[1] - k * dfplayer_x + dfplayer_y)
-                    if debug==1:
-                        cv2.line(frame, (0, y1_draw), (gray_origin.shape[1], y2_draw), (0, 255, 0), 1)
-                        # 画出防守球员和进攻球员
-                        cv2.circle(frame, (dfplayer_x, dfplayer_y), 5, (255, 0, 0))
-                        cv2.circle(frame, (ofplayer_x, ofplayer_y), 5, (255, 0, 0))
+            # k=offside_dectet(test,ofplayers,dfplayer)
+            # if k is not None:
+            #     for ofplayer in ofplayers:
+            #         ofplayer_x = ofplayer[0]
+            #         ofplayer_y = ofplayer[1]
+            #         # 画出越位线
+            #         y1_draw = int(dfplayer_y - k * dfplayer_x)
+            #         y2_draw = int(k * gray_origin.shape[1] - k * dfplayer_x + dfplayer_y)
+            #         if debug==1:
+            #             cv2.line(frame, (0, y1_draw), (gray_origin.shape[1], y2_draw), (0, 255, 0), 1)
+            #             # 画出防守球员和进攻球员
+            #             cv2.circle(frame, (dfplayer_x, dfplayer_y), 5, (255, 0, 0))
+            #             cv2.circle(frame, (ofplayer_x, ofplayer_y), 5, (255, 0, 0))
         print("ball over")
             
         if framecount % 100 == 0:
