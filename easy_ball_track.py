@@ -330,37 +330,37 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
 if __name__=='__main__':
     import torch
     torch.multiprocessing.set_start_method(method='spawn')
-    cap = cv.VideoCapture('./video/offside1.mp4')
+    cap = cv.VideoCapture('camera_test1.mp4')
     box={
         #'1':[[230,145,150,378],0],
         #'2':[[300,300,500,500],2]
     }
-    balldatequeue=torch.multiprocessing.Queue()
-    ballresultqueue=torch.multiprocessing.Queue()
-    ballTrack=torch.multiprocessing.Process(target=ball_track,args=(balldatequeue,ballresultqueue))
-    ballTrack.start()
-    # ball_track(None,None,cap)
+    # balldatequeue=torch.multiprocessing.Queue()
+    # ballresultqueue=torch.multiprocessing.Queue()
+    # ballTrack=torch.multiprocessing.Process(target=ball_track,args=(balldatequeue,ballresultqueue))
+    # ballTrack.start()
+    ball_track(None,None,cap)
     
-    while cap:
-        print('biglooping')
-        r,f=cap.read()
-        f = cv.resize(f, (1920,1080))
-        balldatequeue.put([f,box])
+    # while cap:
+    #     print('biglooping')
+    #     r,f=cap.read()
+    #     f = cv.resize(f, (1920,1080))
+    #     balldatequeue.put([f,box])
         
-        try:
-            yyy=ballresultqueue.get()
-        except RuntimeError:
-            print("lost")
-        except Exception as Err:
-            print('111')
-        else:
-            if yyy is not None:
-                x,y,w,h=yyy[0],yyy[1],yyy[2],yyy[3]
-        try:
-            cv.rectangle(f,(x,y),(x+w,y+h),[0,0,255],3)
-            print((x,y,w,h))
-        except Exception as E:
-            print(E)
+    #     try:
+    #         yyy=ballresultqueue.get()
+    #     except RuntimeError:
+    #         print("lost")
+    #     except Exception as Err:
+    #         print('111')
+    #     else:
+    #         if yyy is not None:
+    #             x,y,w,h=yyy[0],yyy[1],yyy[2],yyy[3]
+    #     try:
+    #         cv.rectangle(f,(x,y),(x+w,y+h),[0,0,255],3)
+    #         print((x,y,w,h))
+    #     except Exception as E:
+    #         print(E)
             
-        cv.imshow('ooo',f)
-        cv.waitKey(1)
+    #     cv.imshow('ooo',f)
+    #     cv.waitKey(1)

@@ -25,6 +25,12 @@ class VideoCapture:
 
   def read(self):
     return self.q.get()
+  
+  def get(self):
+    return self.cap.get(cv2.CAP_PROP_FPS)
+  
+  def release(self):
+    self.cap.release()
 
 
 if __name__ == '__main__':

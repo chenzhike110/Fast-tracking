@@ -24,9 +24,9 @@ if __name__ == "__main__":
         # print(frame.shape)
         frame = cv2.resize(frame, (frame.shape[1]//2,frame.shape[0]//2))
         frame = Image.fromarray(np.uint8(frame))
-        print(np.array(frame).shape)
+        # print(np.array(frame).shape)
         frame = model.detect_image(frame)
-        frame = np.array(frame)[:,:,:-1]
+        # frame = np.array(frame)[:,:,:-1]
         frame = cv2.cvtColor(np.asarray(frame),cv2.COLOR_RGB2BGR)
         cv2.imshow("result",frame)
         cv2.waitKey(1)

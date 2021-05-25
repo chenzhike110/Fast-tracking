@@ -18,6 +18,7 @@ import warnings
 from ORBmin import KNNClassifier,get_data_from_video,mini_img,init_get_video,len_all
 from yolo.utils.utils import bbox_iou 
 from easy_ball_track import ball_track
+from edge import offside_dectet
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
@@ -44,7 +45,7 @@ print(cv2.__version__)
 #     return image
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video", type=str, default="./video/offside1.mp4",
+ap.add_argument("-v", "--video", type=str, default="camera_test1.mp4",
                 help="path to input video file")
 args = vars(ap.parse_args())
 
@@ -199,6 +200,9 @@ if __name__ == "__main__":
     framecount = -1
 
     while True:
+        for i in range(1000):
+            frame=vs.read()
+            
         frame = vs.read()
         frame = frame[1] if args.get("video", False) else frame
         if frame is None:
@@ -265,54 +269,42 @@ if __name__ == "__main__":
             # print(fps.fps())
         
         try:
-            print("get from ball")
             pred,touch=ballresultqueue.get()
             x,y,w,h=pred
         except Exception as Err:
             print(Err)
         else:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 3)
-            # if touch:
-            #     cls_ball=0
-            #     mindis=1e6
-            #     players={}
-            #     # 得到不同类人的排序，得到当前最近人的球权
-            #     for key,value in track_object.items():
-            #         [x,y,w,h],cla=value
-            #         if cla not in players.keys():
-            #             players[str(cla)]=[[x,y]]
-            #         else:
-            #             players[str(cla)].append([x,y])
-            #         dis=((pred[0]+pred[2]/2)-(x+w/2))**2+((pred[1]+pred[3]/2)-(y+h/2))**2
-            #         if dis<mindis:
-            #             mindis=dis
-            #             cls_ball=str(cla)
-            #     # 球在cls_ball的手里
-            #     # 按照y排列
-            # for key in players[key]:
-            #     sorted(players[key],key=lambda x:x[1])
-            # # 只有两队，取对面队的最下方值
-            # if cls_ball=="2":
-            #     dfplayer=np.array(players["3"][0])
-            # else:
-            #     dfplayer=np.array(players["2"][0])
-            # ofplayers=np.array(players[cls_ball])
+            if touch:# 如果判断存在触球
+                cls_ball=0
+                mindis=1e6
+                players={}
+                # 得到不同类人的排序，得到当前最近人的球权
+                for key,value in track_object.items():
+                    [x,y,w,h],cla=value
+                    if cla not in players.keys():
+                        players[str(cla)]=[[x,y]]
+                    else:
+                        players[str(cla)].append([x,y])
+                    dis=((pred[0]+pred[2]/2)-(x+w/2))**2+((pred[1]+pred[3]/2)-(y+h/2))**2
+                    if dis<mindis:
+                        mindis=dis
+                        cls_ball=str(cla)
+            # 判断一下是不是假触球
+                if mindis<10:#是真触球
+                    # 球在cls_ball的手里
+                    # 按照y排列
+                    for key in players[key]:
+                        sorted(players[key],key=lambda x:x[1])
+                    # 只有两队，取对面队的最下方值
+                    if cls_ball=="2":
+                        dfplayer=np.array(players["3"][0])
+                    else:
+                        dfplayer=np.array(players["2"][0])
 
-            # k=offside_dectet(test,ofplayers,dfplayer)
-            # if k is not None:
-            #     for ofplayer in ofplayers:
-            #         ofplayer_x = ofplayer[0]
-            #         ofplayer_y = ofplayer[1]
-            #         # 画出越位线
-            #         y1_draw = int(dfplayer_y - k * dfplayer_x)
-            #         y2_draw = int(k * gray_origin.shape[1] - k * dfplayer_x + dfplayer_y)
-            #         if debug==1:
-            #             cv2.line(frame, (0, y1_draw), (gray_origin.shape[1], y2_draw), (0, 255, 0), 1)
-            #             # 画出防守球员和进攻球员
-            #             cv2.circle(frame, (dfplayer_x, dfplayer_y), 5, (255, 0, 0))
-            #             cv2.circle(frame, (ofplayer_x, ofplayer_y), 5, (255, 0, 0))
-        print("ball over")
-            
+                    ofplayers=np.array(players[cls_ball])
+                    offside_dectet(frame,"down",ofplayers,dfplayer)
+                
         if framecount % 100 == 0:
             # img_new = get_new(frame)
             img_new = Image.fromarray(np.uint8(frame))

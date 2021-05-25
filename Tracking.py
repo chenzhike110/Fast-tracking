@@ -64,12 +64,13 @@ def command_process(commandqueue):
 
 def Control(x,y,centerX,centerY):
     # print(x,y,centerX,centerY)
-    commandx = 1.5*(centerX-x)/(centerX)
-    commandy = 1.5*(centerY-y)/(centerY)
+    # commandx = 1.5*(centerX-x)/(centerX)
+    commandx = 0
+    commandy = 1.1*(centerY-y)/(centerY)
     command = np.array([0,0,commandy,-commandx])
     command = np.clip(command,-1,1)
     return command
-    
+
 Model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
 tracker = SiamFCppTracker()
 tracker.set_model(Model)
@@ -95,11 +96,19 @@ else:
 fps = None
 show = True
 sendtime = 0
+frame = vs.read()
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+fps = vs.get()
+#size = (int(vid.get(cv2.CAP_PROP_FRAME_WIDTH)), int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+#frame=frameflow.frame
+size=frame.shape[:2]
+out = cv2.VideoWriter('./camera_test12.mp4', fourcc, fps, (size[1],size[0]))
 # loop over frames from the video stream
 while True:
     # grab the current frame, then handle if we are using a
     # VideoStream or VideoCapture object
     frame = vs.read()
+    out.write(frame)
     # frame = frame[1] if args.get("video", False) else frame
     # check to see if we have reached the end of the stream
     if frame is None:
@@ -142,11 +151,17 @@ while True:
                 cv2.putText(frame, text, (10, H - ((i * 20) + 20)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             cv2.imshow("Frame", frame)
-            key = cv2.waitKey(1) & 0xFF
+            fuck = cv2.waitKey(1) & 0xFF
+            if fuck == ord('k'):
+                out.release()
+                break
         if success and (time.time() - sendtime) > 0.35:
             command = Control(x+w/2,y+h/2,W/2,H/2)
             commandqueue.put(command)
             sendtime = time.time()
+        
+        elif success == False:
+            initBB = None
     else:
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(1) & 0xFF
@@ -159,7 +174,7 @@ while True:
             # coordinates, then start the FPS throughput estimator as well
             tracker.init(frame, initBB)
             fps = FPS().start()
-
+    
 # if we are using a webcam, release the pointer
 if not args.get("video", False):
     vs.stop()
