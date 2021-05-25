@@ -200,8 +200,8 @@ if __name__ == "__main__":
     framecount = -1
 
     while True:
-        for i in range(1000):
-            frame=vs.read()
+        # for i in range(1000):
+        #     frame=vs.read()
             
         frame = vs.read()
         frame = frame[1] if args.get("video", False) else frame
