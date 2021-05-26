@@ -137,8 +137,11 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
             test = cv.resize(test, (1920,1080))
         pred=dective_by_background(test,ground_truth,tracking_object=tracking_object)   #背景检测法
         if pred is None:
-            ballresultqueue.put([pred,touch])
-            continue
+            if cap is None:
+                ballresultqueue.put([pred,touch])
+                continue
+            else:
+                continue
         SiamTracker.init(test,pred)
         Kalman=KalmanBoxTracker(np.array(pred))
         track_it.append(pred)
@@ -329,8 +332,8 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
 
 if __name__=='__main__':
     import torch
-    torch.multiprocessing.set_start_method(method='spawn')
-    cap = cv.VideoCapture('camera_test1.mp4')
+    torch.multiprocessing.set_start_method(method='spawn',force=True)
+    cap = cv.VideoCapture('/home/jiangcx/桌面/足球视频/offside2.mp4')
     box={
         #'1':[[230,145,150,378],0],
         #'2':[[300,300,500,500],2]

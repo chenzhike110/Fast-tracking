@@ -15,10 +15,11 @@ from siamfcpp.multi_tracker import Multi_Tracker
 from siamfcpp.utils.bbox import cxywh2xywh, xywh2cxywh, xyxy2cxywh
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 import warnings
-from ORBmin import KNNClassifier,get_data_from_video,mini_img,init_get_video,len_all
+from cosin import KNNClassifier,get_data_from_video,mini_img,init_get_video,len_all
 from yolo.utils.utils import bbox_iou 
 from easy_ball_track import ball_track
-from edge import offside_dectet
+from edge import offside_dectet,draw_offside_line
+import cosin
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
@@ -45,7 +46,7 @@ print(cv2.__version__)
 #     return image
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video", type=str, default="camera_test1.mp4",
+ap.add_argument("-v", "--video", type=str, default="/home/jiangcx/桌面/足球视频/offside2.mp4",
                 help="path to input video file")
 args = vars(ap.parse_args())
 
@@ -58,6 +59,40 @@ track_object = {}
 process_num = 2
 scale_size = 1
 knn_updated = False
+
+
+def xywh_iou(box1, box2):
+    """
+        计算IOU
+    """
+
+    b1_x1, b1_x2 = box1[:, 0] , box1[:, 0] + box1[:, 2]
+    b1_y1, b1_y2 = box1[:, 1] , box1[:, 1] + box1[:, 3]
+    b2_x1, b2_x2 = box2[:, 0] , box2[:, 0] + box2[:, 2]
+    b2_y1, b2_y2 = box2[:, 1] , box2[:, 1] + box2[:, 3]
+
+
+    inter_rect_x1 = torch.max(b1_x1, b2_x1)
+    inter_rect_y1 = torch.max(b1_y1, b2_y1)
+    inter_rect_x2 = torch.min(b1_x2, b2_x2)
+    inter_rect_y2 = torch.min(b1_y2, b2_y2)
+
+    inter_area = torch.clamp(inter_rect_x2 - inter_rect_x1 + 1, min=0) * \
+                 torch.clamp(inter_rect_y2 - inter_rect_y1 + 1, min=0)
+
+    b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
+    b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
+
+    iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
+
+    return iou
+
+def exchange_cls(cls_ball,defense):
+    temp_cls = cls_ball
+    cls_ball = defense
+    defense = temp_cls
+    return cls_ball,defense
+
 
 def get_point(event, x, y, flags, param):
     global knn_updated, track_object
@@ -157,8 +192,8 @@ if __name__ == "__main__":
     model_path='knn_class'
     num_of_photo=25
     classes_name=['player','ball','team1','team2','judger']#0,1,2,3,4
-    padding=10
-    update_data=True
+    padding=0
+    update_data=False
     # 单个bao
     
     knn_updated=init_get_video(classname=classes_name[2:],video_name=videoname,num_of_photo=num_of_photo, path=model_path,update_data=update_data)
@@ -178,7 +213,7 @@ if __name__ == "__main__":
     cv2.namedWindow('result')
     cv2.setMouseCallback('result',get_point)
     # Detector and Tracker initial
-    torch.multiprocessing.set_start_method(method='spawn')
+    torch.multiprocessing.set_start_method(method='spawn',force=True)
     # start process
     for i in range(process_num):
         tracking_number.append(0)
@@ -210,6 +245,7 @@ if __name__ == "__main__":
         #frame = imutils.resize(frame, height=frame.shape[0]//scale_size, width=frame.shape[1]//scale_size)
         # frame = cv2.resize(frame, (1920,1080))
         frame = imutils.resize(frame, width=1920, height=1080)
+        origin_frame = frame.copy()
         framecount += 1
 
         balldatequeue.put((frame,None))
@@ -235,6 +271,7 @@ if __name__ == "__main__":
                                 del track_object[j]
                             else:
                                 track_object[j][0]=result[index][0]
+
                                 if track_object[j][1]==2 or track_object[j][1]==3 or track_object[j][1]==4 and knn_updated==False :
                                     if KNN==None:
                                         get_data_from_video(frame=frame, box=track_object[j][0], classname=classes_name[track_object[j][1]], padding=padding, video_name=videoname,path=model_path,num_of_photo=num_of_photo)
@@ -253,11 +290,18 @@ if __name__ == "__main__":
                         except KeyError:
                             print("main deleted but process not", j)
                             continue
+
             if knn_updated:
                 print('init KNNClassifier')
                 KNN=KNNClassifier(video_name=videoname,modelpath=model_path)
                 knn_updated=False
 
+            if KNN is not None:
+                for i in track_object.keys():
+                    track_object[i][1], mat, box = KNN.prediction(box=track_object[i][0], frame=frame,
+                                                                  video_name=videoname, classes_name=classes_name,
+                                                                  padding=padding,
+                                                                  save_img_recode=False, k=5)
             for i in track_object.keys():
                 (x, y, w, h) = [int(v) for v in track_object[i][0]]
 
@@ -270,6 +314,7 @@ if __name__ == "__main__":
         
         try:
             pred,touch=ballresultqueue.get()
+            print("----------------------------------------------------------------",touch)
             x,y,w,h=pred
         except Exception as Err:
             print(Err)
@@ -278,23 +323,31 @@ if __name__ == "__main__":
             if touch:# 如果判断存在触球
                 cls_ball=0
                 mindis=1e6
+                minxywh = [1e6,1e6,1e6,1e6]
                 players={}
+                s = set()
                 # 得到不同类人的排序，得到当前最近人的球权
                 for key,value in track_object.items():
                     [x,y,w,h],cla=value
-                    if cla not in players.keys():
-                        players[str(cla)]=[[x,y]]
+                    all_players_key = players.keys()
+                    if str(cla) not in list(all_players_key):
+                        players[str(cla)]=[[x,y,w,h]]
                     else:
-                        players[str(cla)].append([x,y])
+                        players[str(cla)].append([x,y,w,h])
                     dis=((pred[0]+pred[2]/2)-(x+w/2))**2+((pred[1]+pred[3]/2)-(y+h/2))**2
                     if dis<mindis:
                         mindis=dis
+                        minxywh = [x,y,w,h]
                         cls_ball=str(cla)
             # 判断一下是不是假触球
-                if mindis<10:#是真触球
+                paddling_iou = 5
+                iou = xywh_iou(torch.Tensor([[pred[0]-paddling_iou,pred[1]-paddling_iou,pred[2]+2*paddling_iou,pred[3]+2*paddling_iou]]),torch.Tensor([minxywh]))
+                print(pred,minxywh)
+                print("iou:",iou)
+                if iou>0:#minxywh[0]<pred[0]<(minxywh[0]+minxywh[2]) and minxywh[1]<pred[1]<(minxywh[1]+minxywh[3]) :#是真触球
                     # 球在cls_ball的手里
                     # 按照y排列
-                    for key in players[key]:
+                    for key in players.keys():
                         sorted(players[key],key=lambda x:x[1])
                     # 只有两队，取对面队的最下方值
                     if cls_ball=="2":
@@ -302,21 +355,44 @@ if __name__ == "__main__":
                     else:
                         dfplayer=np.array(players["2"][0])
 
+                    if cls_ball == "2":
+                        defense = "3"
+                    else:
+                        defense == "2"
+
+                    direction = "down"
+                    if direction == "left":
+                        if dfplayer[0]>pred[0]:
+                            cls_ball,defense = exchange_cls(cls_ball,defense)
+                    elif direction == "right":
+                        if dfplayer[0]<pred[0]:
+                            cls_ball, defense = exchange_cls(cls_ball, defense)
+                    elif direction == 'up':
+                        if dfplayer[1]>pred[1]:
+                            cls_ball, defense = exchange_cls(cls_ball, defense)
+                    elif direction == 'down':
+                        if dfplayer[1]<pred[1]:
+                            cls_ball, defense = exchange_cls(cls_ball, defense)
+
                     ofplayers=np.array(players[cls_ball])
-                    offside_dectet(frame,"down",ofplayers,dfplayer)
+                    dfplayer = np.array(players[defense][0])
+                    k,_,_ = offside_dectet(origin_frame,direction,ofplayers,dfplayer)
+                    frame = draw_offside_line(frame,"down",dfplayer,k)
+
                 
         if framecount % 100 == 0:
             # img_new = get_new(frame)
-            img_new = Image.fromarray(np.uint8(frame))
+            img_new = Image.fromarray(np.uint8(origin_frame))
             initBB = yolo.detect_image_without_draw(img_new)
+            initBB=mini_img(frame,initBB)
             initBB = check_box(initBB)
             for i in range(len(dataqueues)):
                 temp = initBB[int(len(initBB)/len(dataqueues)*i):int(len(initBB)/len(dataqueues)*(i+1))]
                 for j in range(len(temp)):
                     track_object[i*100+tracking_number[i]] = [temp[j][0:4],temp[j][-1]]
                     tracking_number[i] += 1
-                dataqueues[i].put((frame, temp, [])) 
+                dataqueues[i].put((origin_frame, temp, []))
             fps = FPS().start()
 
         cv2.imshow("result", frame)
-        cv2.waitKey(1)
+        cv2.waitKey(-1)

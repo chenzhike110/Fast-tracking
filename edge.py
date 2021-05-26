@@ -10,12 +10,16 @@ import time
 # 统计概率霍夫线变换
 def offside_dectet(image, direction, ofplayers, dfplayer):
 
-    debug = 1
+    debug = 0
     img_origin = image.copy()
     shrink1 = 2
     shrink2 = 4
-    dfplayer_x = dfplayer[0]
-    dfplayer_y = dfplayer[1]
+    if direction in ['left','up']:
+        dfplayer_x = dfplayer[0]
+        dfplayer_y = dfplayer[1]
+    else:
+        dfplayer_x = dfplayer[0]+dfplayer[2]
+        dfplayer_y = dfplayer[1]+dfplayer[3]
 
     image = cv2.resize(image,(math.ceil(image.shape[1]/shrink1),math.ceil(image.shape[0]/shrink1)))
     has_offside = []
@@ -56,7 +60,7 @@ def offside_dectet(image, direction, ofplayers, dfplayer):
                 angle_per = angle_per + np.pi
             angle.append(angle_per)
             # b.append(x1 * (y2 - y1) / (x2 - x1) - y1)
-            b.append((x2*y1-x1*y2) / (x2 - x1) )
+            b.append(shrink1*shrink2*(x2*y1-x1*y2) / (x2 - x1) )
             if debug == 1:
                 cv2.line(img_origin, (x1*shrink1*shrink2, y1*shrink1*shrink2), (x2*shrink1*shrink2, y2*shrink1*shrink2), (0, 0, 255), 1)  # 画线
 
@@ -99,16 +103,20 @@ def offside_dectet(image, direction, ofplayers, dfplayer):
             # k = 0.10422
 
             for ofplayer in ofplayers:
-                ofplayer_x = ofplayer[0]
-                ofplayer_y = ofplayer[1]
-                # 画出越位线
-                y1_draw = int(dfplayer_y - k * dfplayer_x)
-                y2_draw = int(k * gray_origin.shape[1] - k * dfplayer_x + dfplayer_y)
-                if debug==1:
-                    cv2.line(img_origin, (0, y1_draw), (gray_origin.shape[1], y2_draw), (0, 255, 0), 1)
-                    # 画出防守球员和进攻球员
-                    cv2.circle(img_origin, (dfplayer_x, dfplayer_y), 5, (255, 0, 0))
-                    cv2.circle(img_origin, (ofplayer_x, ofplayer_y), 5, (255, 0, 0))
+                if direction in ['left', 'up']:
+                    ofplayer_x = ofplayer[0]
+                    ofplayer_y = ofplayer[1]
+                else:
+                    ofplayer_x = ofplayer[0] + ofplayer[2]
+                    ofplayer_y = ofplayer[1] + ofplayer[3]
+                # # 画出越位线
+                # y1_draw = int(dfplayer_y - k * dfplayer_x)
+                # y2_draw = int(k * gray_origin.shape[1] - k * dfplayer_x + dfplayer_y)
+                # if debug==1:
+                #     cv2.line(img_origin, (0, y1_draw), (gray_origin.shape[1], y2_draw), (0, 255, 0), 1)
+                #     # 画出防守球员和进攻球员
+                #     cv2.circle(img_origin, (dfplayer_x, dfplayer_y), 5, (255, 0, 0))
+                #     cv2.circle(img_origin, (ofplayer_x, ofplayer_y), 5, (255, 0, 0))
 
                 # 越位判罚
                 line_x = ofplayer_y - (dfplayer_y - k * dfplayer_x) / k
@@ -135,11 +143,29 @@ def offside_dectet(image, direction, ofplayers, dfplayer):
                         has_offside.append(0)
         if debug == 1:
             cv2.imshow("line_detect_possible_demo", img_origin)
-    return has_line, has_offside
+    return k,has_line, has_offside
 
+def draw_offside_line(img_origin,direction,dfplayer,k):
+    debug = 1
+    if direction in ['left','up']:
+        dfplayer_x = dfplayer[0]
+        dfplayer_y = dfplayer[1]
+    else:
+        dfplayer_x = dfplayer[0]+dfplayer[2]
+        dfplayer_y = dfplayer[1]+dfplayer[3]
+
+    # 画出越位线
+    y1_draw = int(dfplayer_y - k * dfplayer_x)
+    y2_draw = int(k * img_origin.shape[1] - k * dfplayer_x + dfplayer_y)
+    if debug == 1:
+        cv2.line(img_origin, (0, y1_draw), (img_origin.shape[1], y2_draw), (0, 255, 0), 1)
+        # 画出防守球员和进攻球员
+        cv2.circle(img_origin, (dfplayer_x, dfplayer_y), 5, (255, 0, 0))
+        # cv2.circle(img_origin, (ofplayer_x, ofplayer_y), 5, (255, 0, 0))
+    return img_origin
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture('./video/offside1.mp4')
+    cap = cv2.VideoCapture('/home/jiangcx/桌面/足球视频/offside2.mp4')
     while (cap.isOpened()):
         print('-----frame#-----')
         ret, img = cap.read()
@@ -152,7 +178,8 @@ if __name__ == "__main__":
         start_time = time.time()
         ofplayers = np.array([[10,20]])
         deplayer = np.array([100, 200])
-        has_line, has_offsides = offside_dectet(img, 'up', ofplayers, deplayer)
+        k,has_line, has_offsides = offside_dectet(img, 'up', ofplayers, deplayer)
+        draw_offside_line(img, "up", deplayer, k)
         time1 = time.time()
         print('time1', time1 - start_time)
         # time2 = time.time()
