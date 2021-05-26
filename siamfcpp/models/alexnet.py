@@ -6,23 +6,13 @@ class AlexNet(nn.Module):
 
     def __init__(self):
         super(AlexNet, self).__init__()
-        self.conv1 = nn.Sequential(nn.Conv2d(3, 96, kernel_size=11, stride=2, padding=0, bias=True, groups=1),
-                                    nn.BatchNorm2d(96),
-                                    nn.ReLU())
+        self.conv1 = conv_bn_relu(3, 96, stride=2, kszie=11, pad=0)
         self.pool1 = nn.MaxPool2d(3, 2, 0, ceil_mode=True)
-        self.conv2 = nn.Sequential(nn.Conv2d(96, 256, kernel_size=5, stride=1, padding=0, bias=True, groups=1),
-                                    nn.BatchNorm2d(256),
-                                    nn.ReLU())
+        self.conv2 = conv_bn_relu(96, 256, 1, 5, 0)
         self.pool2 = nn.MaxPool2d(3, 2, 0, ceil_mode=True)
-        self.conv3 = nn.Sequential(nn.Conv2d(256, 384, kernel_size=3, stride=1, padding=0, bias=True, groups=1),
-                                    nn.BatchNorm2d(384),
-                                    nn.ReLU())
-        self.conv4 = nn.Sequential(nn.Conv2d(384, 384, kernel_size=3, stride=1, padding=0, bias=True, groups=1),
-                                    nn.BatchNorm2d(384),
-                                    nn.ReLU())
+        self.conv3 = conv_bn_relu(256, 384, 1, 3, 0)
+        self.conv4 = conv_bn_relu(384, 384, 1, 3, 0)
         self.conv5 = conv_bn_relu(384, 256, 1, 3, 0, has_relu=False)
-        self.conv5 = nn.Sequential(nn.Conv2d(384, 256, kernel_size=3, stride=1, padding=0, bias=True, groups=1),
-                                    nn.BatchNorm2d(256))
 
     def forward(self, x):
         x = self.conv1(x)
