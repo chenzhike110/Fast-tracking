@@ -4,7 +4,7 @@ from torch import multiprocessing
 from .utils.crop import get_crop, get_subwindow_tracking
 from .utils.bbox import cxywh2xywh, xywh2cxywh, xyxy2cxywh
 from .utils.misc import imarray_to_tensor, tensor_to_numpy
-from .model_build import build_model
+from .model_build import build_alex, build_model
 from .tracking_utils import postprocess_box, postprocess_score, restrict_box, cvt_box_crop2frame
 
 class Multi_Tracker(torch.multiprocessing.Process):
@@ -25,7 +25,8 @@ class Multi_Tracker(torch.multiprocessing.Process):
     )
     def __init__(self, index, image, dataqueue, resultqueue):
         super(Multi_Tracker, self).__init__()
-        self.model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
+        # self.model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
+        self.model = build_alex("siamfcpp/models/siamfcpp-alexnet-vot.pkl")
         self.model.cuda()
         self.model.eval()
         self.index = index

@@ -19,6 +19,7 @@ class SiamTrack(ModuleBase):
 
     default_hyper_params = dict(
         pretrain_model_path="./siamfcpp/models/siamfcpp-tinyconv-vot.pkl",
+        # pretrain_model_path="./siamfcpp/models/siamfcpp-alexnet-vot.pkl",
         head_width=64,
     )
 

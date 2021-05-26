@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from .module_base import ModuleBase
 from .common_block import conv_bn_relu
 
 class TinyConv(nn.Module):

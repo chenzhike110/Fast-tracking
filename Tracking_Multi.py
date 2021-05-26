@@ -298,8 +298,7 @@ if __name__ == "__main__":
 
             if KNN is not None:
                 for i in track_object.keys():
-                    track_object[i][1], mat, box = KNN.prediction(box=track_object[i][0], frame=frame,
-                                                                  video_name=videoname, classes_name=classes_name,
+                    track_object[i][1], mat, box = KNN.prediction(box=track_object[i][0], frame=frame,video_name=videoname, classes_name=classes_name,
                                                                   padding=padding,
                                                                   save_img_recode=False, k=5)
             for i in track_object.keys():
