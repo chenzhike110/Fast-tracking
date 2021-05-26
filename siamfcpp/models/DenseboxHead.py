@@ -70,7 +70,7 @@ class DenseboxHead(ModuleBase):
 
         self.bi = torch.nn.Parameter(torch.tensor(0.).type(torch.Tensor))
         self.si = torch.nn.Parameter(torch.tensor(1.).type(torch.Tensor))
-
+        self._hyper_params = self.default_hyper_params
         self.cls_convs = []
         self.bbox_convs = []
 

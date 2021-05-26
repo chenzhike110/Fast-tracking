@@ -30,6 +30,7 @@ class SiamTrack(ModuleBase):
         self.head = head.eval()
         # loss
         self.loss = loss
+        self._hyper_params = self.default_hyper_params
 
     def forward(self, *args, phase="track"):
         r"""
