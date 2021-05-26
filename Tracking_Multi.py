@@ -46,7 +46,7 @@ print(cv2.__version__)
 #     return image
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video", type=str, default="/home/jiangcx/桌面/足球视频/offside2.mp4",
+ap.add_argument("-v", "--video", type=str, default="/home/jiangcx/桌面/足球视频/offside2_2.mp4",
                 help="path to input video file")
 args = vars(ap.parse_args())
 
@@ -93,6 +93,25 @@ def exchange_cls(cls_ball,defense):
     defense = temp_cls
     return cls_ball,defense
 
+def exchange_d_o(direction,cls_ball,defense):
+    is_exchange = 0
+    if direction == "left":
+        if dfplayer[0] > pred[0]:
+            cls_ball, defense = exchange_cls(cls_ball, defense)
+            is_exchange = 1
+    elif direction == "right":
+        if dfplayer[0] < pred[0]:
+            cls_ball, defense = exchange_cls(cls_ball, defense)
+            is_exchange = 1
+    elif direction == 'up':
+        if dfplayer[1] > pred[1]:
+            cls_ball, defense = exchange_cls(cls_ball, defense)
+            is_exchange = 1
+    elif direction == 'down':
+        if dfplayer[1] < pred[1]:
+            cls_ball, defense = exchange_cls(cls_ball, defense)
+            is_exchange = 1
+    return cls_ball,defense,is_exchange
 
 def get_point(event, x, y, flags, param):
     global knn_updated, track_object
@@ -296,11 +315,11 @@ if __name__ == "__main__":
                 KNN=KNNClassifier(video_name=videoname,modelpath=model_path)
                 knn_updated=False
 
-            if KNN is not None:
-                for i in track_object.keys():
-                    track_object[i][1], mat, box = KNN.prediction(box=track_object[i][0], frame=frame,video_name=videoname, classes_name=classes_name,
-                                                                  padding=padding,
-                                                                  save_img_recode=False, k=5)
+            # if KNN is not None:
+            #     for i in track_object.keys():
+            #         track_object[i][1], mat, box = KNN.prediction(box=track_object[i][0], frame=frame,video_name=videoname, classes_name=classes_name,
+            #                                                       padding=padding,
+            #                                                       save_img_recode=False, k=5)
             for i in track_object.keys():
                 (x, y, w, h) = [int(v) for v in track_object[i][0]]
 
@@ -326,6 +345,7 @@ if __name__ == "__main__":
                 players={}
                 s = set()
                 # 得到不同类人的排序，得到当前最近人的球权
+                dis_all = []
                 for key,value in track_object.items():
                     [x,y,w,h],cla=value
                     all_players_key = players.keys()
@@ -334,56 +354,62 @@ if __name__ == "__main__":
                     else:
                         players[str(cla)].append([x,y,w,h])
                     dis=((pred[0]+pred[2]/2)-(x+w/2))**2+((pred[1]+pred[3]/2)-(y+h/2))**2
+                    dis_all.append(dis)
                     if dis<mindis:
                         mindis=dis
                         minxywh = [x,y,w,h]
                         cls_ball=str(cla)
             # 判断一下是不是假触球
-                paddling_iou = 5
+                paddling_iou = 5 # expand the ball xywh to calculate iou
                 iou = xywh_iou(torch.Tensor([[pred[0]-paddling_iou,pred[1]-paddling_iou,pred[2]+2*paddling_iou,pred[3]+2*paddling_iou]]),torch.Tensor([minxywh]))
-                print(pred,minxywh)
-                print("iou:",iou)
+                bias_keeper = -2 # if there is goal keaper:-2 ; if not:-1
+                origin_direction = "down"  # init direction
+                dis_near_player = 50 # if there are two people near the ball, try to determine whether should exchange the ball_cls
                 if iou>0:#minxywh[0]<pred[0]<(minxywh[0]+minxywh[2]) and minxywh[1]<pred[1]<(minxywh[1]+minxywh[3]) :#是真触球
                     # 球在cls_ball的手里
                     # 按照y排列
                     for key in players.keys():
-                        sorted(players[key],key=lambda x:x[1])
+                        players[key] = sorted(players[key],key=lambda x:x[1])
                     # 只有两队，取对面队的最下方值
                     if cls_ball=="2":
-                        dfplayer=np.array(players["3"][0])
+                        dfplayer=np.array(players["3"][bias_keeper])
                     else:
-                        dfplayer=np.array(players["2"][0])
+                        dfplayer=np.array(players["2"][bias_keeper])
 
                     if cls_ball == "2":
                         defense = "3"
                     else:
-                        defense == "2"
+                        defense = "2"
 
-                    direction = "down"
-                    if direction == "left":
-                        if dfplayer[0]>pred[0]:
-                            cls_ball,defense = exchange_cls(cls_ball,defense)
-                    elif direction == "right":
-                        if dfplayer[0]<pred[0]:
-                            cls_ball, defense = exchange_cls(cls_ball, defense)
-                    elif direction == 'up':
-                        if dfplayer[1]>pred[1]:
-                            cls_ball, defense = exchange_cls(cls_ball, defense)
-                    elif direction == 'down':
-                        if dfplayer[1]<pred[1]:
-                            cls_ball, defense = exchange_cls(cls_ball, defense)
+                    if cls_ball == "2":
+                        direction = origin_direction
+                    elif cls_ball == "3":
+                        direction = origin_direction
+                    dis_all = np.array(dis_all)
+                    if len(dis_all[dis_all<dis_near_player**2])>1: # situation that is hard to distinguish the ownership of ball
+                        cls_ball,defense,is_exchange = exchange_d_o(direction,cls_ball,defense)
+                        if is_exchange == 1:
+                            ofplayers = np.array(players[cls_ball])
+                            dfplayer = np.array(players[defense][bias_keeper])
+                            cls_ball, defense,is_exchange = exchange_d_o(direction, cls_ball, defense)
+                        # if is_exchange == 1:
 
+
+                    if cls_ball == "2":
+                        direction = origin_direction
+                    elif cls_ball == "3":
+                        direction = origin_direction
                     ofplayers=np.array(players[cls_ball])
-                    dfplayer = np.array(players[defense][0])
+                    dfplayer = np.array(players[defense][bias_keeper])
                     k,_,_ = offside_dectet(origin_frame,direction,ofplayers,dfplayer)
-                    frame = draw_offside_line(frame,"down",dfplayer,k)
+                    frame = draw_offside_line(frame,origin_direction,dfplayer,k)
 
                 
         if framecount % 100 == 0:
             # img_new = get_new(frame)
             img_new = Image.fromarray(np.uint8(origin_frame))
             initBB = yolo.detect_image_without_draw(img_new)
-            initBB=mini_img(frame,initBB)
+            # initBB=mini_img(frame,initBB)
             initBB = check_box(initBB)
             for i in range(len(dataqueues)):
                 temp = initBB[int(len(initBB)/len(dataqueues)*i):int(len(initBB)/len(dataqueues)*(i+1))]

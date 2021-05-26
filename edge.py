@@ -88,7 +88,7 @@ def offside_dectet(image, direction, ofplayers, dfplayer):
         else:
             k_unsort = np.tan(angle)  # 角度对应的k
             b = np.array(b)
-            dis = abs(-k_unsort * dfplayer_x + dfplayer_y + b) / np.sqrt(1 + k_unsort * k_unsort)  # 防守球员到线的距离
+            dis = abs(k_unsort * dfplayer_x - dfplayer_y + b) / np.sqrt(1 + k_unsort * k_unsort)  # 防守球员到线的距离
             dis = list(dis)
             angle_final = angle[dis.index(min(dis))]  # 选择离防守球员最近的线
             if abs(angle_final) < 0.001:  # 处理奇异情况

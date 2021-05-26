@@ -21,7 +21,7 @@ from ball.kalmanfilter import KalmanBoxTracker
 from ball.Localdetectball import Localdective_by_background,RegionDetectBall
 
 from siamfcpp.Tracker import SiamFCppTracker
-from siamfcpp.model_build import build_model
+from siamfcpp.model_build import build_model,build_alex
 from edgeline import offside_dectet 
 
 #from tracking_camera import init_siam,initBBinit,siam_follow
@@ -86,6 +86,9 @@ def ball_touch(track_it,track_object):
         v_before=np.array([track_it[-2][0]-track_it[-3][0],track_it[-2][1]-track_it[-3][1]])
         cos=(v_now[0]*v_before[0]+v_now[1]*v_before[1])/(np.linalg.norm(v_now)*np.linalg.norm(v_before)+0.001)
 
+        print(v_now,v_before)
+        if (v_now==[0,0]).all() and (v_before==[0,0]).all():
+            return False
         if cos<0.9:# 有可能发生触球
             if track_object is not None:# 有人交互，进一步判断
                 for i in track_object.keys():
@@ -116,8 +119,10 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
     count_lost_frame=1
     debug=True
     touch=False
+    pred_kalman_list = [] #store the pred of kalman
+    is_pred_kalman = 0
 
-    Model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
+    Model = build_alex("siamfcpp/models/siamfcpp-alexnet-vot.pkl")
     SiamTracker=SiamFCppTracker()
     SiamTracker.set_model(Model)
 
@@ -130,7 +135,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                 test,tracking_object=balldataqueue.get()
             except Exception as Err:
                 tracking_object=None
-                print(Err)
+                # print(Err)
                 continue
         else:
             r,test=cap.read()
@@ -191,6 +196,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                         SiamTracker.init(test,pred)
                         Kalman=KalmanBoxTracker(np.array(pred))
                         goon=False
+                        is_pred_kalman = 0
                         if debug:
                             print('break and init siam/kalman')
                     else: 
@@ -201,9 +207,11 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
             if goon:
                 pred_by_siam,lost,pos=SiamTracker.update(test)
                 pred_by_siam=[int(i) for i in pred_by_siam]
-                
+
+
                 Kalman.predict()
                 pred_by_Kalman=[int(i) for i in Kalman.get_state()[:4].reshape(1,4)[0].tolist()]
+                pred_kalman_list.append(pred_by_Kalman)
 
                 if lost:
                     # siamFC预测有问题时处理 siam丢失
@@ -214,6 +222,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                         if pred_by_background is None:# 全局背景也检测不到
                             pred = pred_by_Kalman
                             track_it.append(pred)
+                            is_pred_kalman = 1
                             if debug:
                                 print("kalman 2",pred,"siam:None RD:None GD:None->Kalman")
                         else:
@@ -224,11 +233,13 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                                 SiamTracker.init(test,pred)
                                 Kalman.update(np.array(pred))
                                 track_it.append(pred)
+                                is_pred_kalman = 0
                                 if debug:
                                     print("background",pred,"siam:None RD:None GD:Yes->GD")
                             else:
                                 pred=pred_by_Kalman
                                 track_it.append(pred)
+                                is_pred_kalman = 1
                                 if debug:
                                     print("kalman",pred,"siam:None RD:None GD:Yes but check wrong->Kalman")
                     else:
@@ -239,6 +250,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                             SiamTracker.init(test,pred)
                             Kalman.update(np.array(pred))
                             track_it.append(pred)
+                            is_pred_kalman = 0
                             if debug:
                                 print("RDbackground 3",pred,"siam:None RD:Yes->RD")
                         else:
@@ -247,6 +259,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                             if pred_by_background is None:
                                 pred = pred_by_Kalman
                                 track_it.append(pred)
+                                is_pred_kalman = 1
                                 if debug:
                                     print("kalman 2-2",pred,"siam:None RD:Yes but check wrong GD:None->kalman")
                             else:
@@ -256,11 +269,13 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                                     SiamTracker.init(test,pred)
                                     Kalman.update(np.array(pred))
                                     track_it.append(pred)
+                                    is_pred_kalman = 0
                                     if debug:
                                         print("background",pred,"siam:None RD:Yes but check wrong GD:Yes->GD ")
                                 else:
                                     pred=pred_by_Kalman
                                     track_it.append(pred)
+                                    is_pred_kalman = 1
                                     if debug:
                                         print("kalman",pred,"siam:None RD:Yes but check wrong GD:Yes but check wrong->Kalman")
                 else:
@@ -271,6 +286,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                         Kalman.update(np.array(pred_by_siam))
                         pred=pred_by_siam
                         track_it.append(pred)
+                        is_pred_kalman = 0
                         if debug:
                             print("siam 4",pred,"siam:Yes ->siam")
                     else:
@@ -283,6 +299,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                             if pred_by_background is None:# 全局还是检测不到
                                 pred=pred_by_siam
                                 track_it.append(pred)
+                                is_pred_kalman = 0
                                 if debug:
                                    print("siam 5",pred,"siam:yes but sim wrong RD:None GD:None->siam")
                             else:
@@ -292,11 +309,13 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                                     SiamTracker.init(test,pred)
                                     Kalman.update(np.array(pred))
                                     track_it.append(pred)
+                                    is_pred_kalman = 0
                                     if debug:
                                         print("background",pred,"siam:yes but sim wrong RD:None GD:Yes->GD")
                                 else:
                                     pred=pred_by_Kalman
                                     track_it.append(pred)
+                                    is_pred_kalman = 1
                                     if debug:
                                         print("kalman 7",pred,"siam:yes but sim wrong RD:None GD:Yes but check wrong->Kalman")#检查全局
                         else:
@@ -306,15 +325,19 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
                                 SiamTracker.init(test,pred)
                                 Kalman.update(np.array(pred))
                                 track_it.append(pred)
+                                is_pred_kalman = 0
                                 if debug:
                                     print("RDbackground",pred,"siam:yes but sim wrong RD:Yes->RD")
                             else:
                                 pred=pred_by_Kalman
+                                is_pred_kalman = 1
                                 track_it.append(pred)
                                 if debug:
                                     print("kalman",pred,"siam:yes but sim wrong RD:Yes but check wrong->Kalman")#检测区域检测
-
-            touch=ball_touch(track_it,track_object=None)
+            if is_pred_kalman == 0:
+                touch = ball_touch(track_it,track_object=None)
+            else:
+                touch = ball_touch(pred_kalman_list, track_object=None)
             #print('ball_cos:',touch,"#"*30)
 
             if cap==None:

@@ -24,12 +24,12 @@ from .utils.utils import (DecodeBox, bbox_iou, letterbox_image,
 #--------------------------------------------#
 class YOLO(object):
     _defaults = {
-        "model_path"        : 'yolo/yolov4.pth',
-        "anchors_path"      : 'yolo/my_anchor.txt',
+        "model_path"        : 'yolo/new_yq_Epoch96-Total_Loss5.4235-Val_Loss5.7770.pth',
+        "anchors_path"      : 'yolo/my_anchors.txt',
         "classes_path"      : 'yolo/my_classes.txt',
         "model_image_size"  : (608, 608, 3),
         "confidence"        : 0.5,
-        "iou"               : 0.3,
+        "iou"               : 0.1,
         "cuda"              : False
     }
 
@@ -214,6 +214,9 @@ class YOLO(object):
         return image
     
     def detect_image_without_draw(self, image):
+
+        image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(np.uint8(image))
         image_shape = np.array(np.shape(image)[0:2])
 
         #---------------------------------------------------------#

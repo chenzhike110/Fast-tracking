@@ -175,7 +175,7 @@ def Localdective_by_background(test,ground_truth,im_x,pos):
     mask = cv.inRange(hsv, lower_white, upper_white)
     edges = cv.bitwise_and(edges, edges, mask=mask)
 
-    cv.imshow('edge',cv.resize(edges,(edges.shape[1]//2,edges.shape[0]//2)))
+    # cv.imshow('edge',cv.resize(edges,(edges.shape[1]//2,edges.shape[0]//2)))
     print('局部检测')
     st = time.time()
     d_target , score_bg = ball_score(edges,test,ground_truth,im_x,pos)                  #获得得分

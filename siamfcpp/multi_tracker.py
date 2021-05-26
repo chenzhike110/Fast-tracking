@@ -67,7 +67,7 @@ class Multi_Tracker(torch.multiprocessing.Process):
             try: 
                 im_x, state, delete = self.dataqueue.get(timeout=1)
             except Exception as error:
-                print(error)
+                # print(error)
                 continue
             else:
 

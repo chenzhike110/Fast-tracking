@@ -211,6 +211,8 @@ def get_data_from_video(frame,box,classname,padding,video_name,path,num_of_photo
     else:
         return None
 
+
+
 def mini_img(frame,yolo):
     result=[]
     for i in yolo:#[[x,y,w,h,c]]
@@ -227,6 +229,10 @@ def mini_img(frame,yolo):
                 x_c, y_c, w_c, h_c = cv.boundingRect(d)
                 if w/h<2 and h/w<2:
                     S=S_1
+        print(S)
+        if S<90:
+            x_c,y_c=x_c-5,y_c-5
+            w_c,h_c=w_c+10,h_c+10
         box=[x+x_c,y+y_c,w_c,h_c,c]
         box=[box[0]+box[2]//2,box[1]+box[3]//2,box[2],box[3],box[4]]
         result.append(np.array(box))
