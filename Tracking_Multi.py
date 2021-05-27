@@ -1,7 +1,6 @@
 import torch
 import cv2
 import argparse
-import time
 import numpy as np
 import socket
 
@@ -237,8 +236,6 @@ if __name__ == "__main__":
 
         balldatequeue.put((frame,None))
         # update the FPS counter
-
-        startTime = time.time() 
         if initBB is not None:
             for i in range(len(dataqueues)):
                 dataqueues[i].put((frame, [], []))
@@ -361,8 +358,10 @@ if __name__ == "__main__":
                 #判断触球
                 # 人和球的
                 pass
-            endtime = time.time()
-            cv2.putText(frame, "FPS: {:.2f}".format(1.0/(endtime-startTime)), (10,frame.shape[0]-200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            if fps != None:
+                fps.stop()
+                fps.update()
+            cv2.putText(frame, "FPS: {:.2f}".format(fps.fps()), (10,frame.shape[0]-200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                 
         if framecount % 100 == 0:
             # img_new = get_new(frame)
@@ -376,6 +375,8 @@ if __name__ == "__main__":
                     track_object[i*100+tracking_number[i]] = [temp[j][0:4],temp[j][-1],0,False,False]
                     tracking_number[i] += 1
                 dataqueues[i].put((origin_frame, temp, []))  
+            if fps == None:
+                fps = FPS().start()
 
         cv2.imshow("result", frame)
         cv2.waitKey(1)
