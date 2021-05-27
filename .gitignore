@@ -4,6 +4,7 @@ model_store
 *.pyc
 *.pth
 *.pkl
+*.txt
 core
 *.out
 __pycache__

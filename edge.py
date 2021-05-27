@@ -23,7 +23,7 @@ def offside_dectet(image, direction, ofplayers, dfplayer):
 
     image = cv2.resize(image,(math.ceil(image.shape[1]/shrink1),math.ceil(image.shape[0]/shrink1)))
     has_offside = []
-    th = 30  # 边缘检测后大于th的才算边界
+    th = 20  # 边缘检测后大于th的才算边界
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
     gray_origin = cv2.cvtColor(img_origin, cv2.COLOR_BGRA2GRAY)
@@ -120,7 +120,7 @@ def offside_dectet(image, direction, ofplayers, dfplayer):
 
                 # 越位判罚
                 line_x = ofplayer_y - (dfplayer_y - k * dfplayer_x) / k
-                line_y = k * ofplayer_x - k * ofplayer_x + ofplayer_y
+                line_y = k * ofplayer_x - k * dfplayer_x + dfplayer_y
                 if direction == 'left':
                     if line_x > ofplayer_x:
                         has_offside.append(1)
@@ -132,12 +132,12 @@ def offside_dectet(image, direction, ofplayers, dfplayer):
                     else:
                         has_offside.append(0)
                 elif direction == 'up':
-                    if line_y < ofplayer_y:
+                    if line_y > ofplayer_y:
                         has_offside.append(1)
                     else:
                         has_offside.append(0)
                 elif direction == 'down':
-                    if line_y > ofplayer_y:
+                    if line_y < ofplayer_y:
                         has_offside.append(1)
                     else:
                         has_offside.append(0)
@@ -158,7 +158,7 @@ def draw_offside_line(img_origin,direction,dfplayer,k):
     y1_draw = int(dfplayer_y - k * dfplayer_x)
     y2_draw = int(k * img_origin.shape[1] - k * dfplayer_x + dfplayer_y)
     if debug == 1:
-        cv2.line(img_origin, (0, y1_draw), (img_origin.shape[1], y2_draw), (0, 255, 0), 1)
+        cv2.line(img_origin, (0, y1_draw), (img_origin.shape[1], y2_draw), (242, 232, 22), 2)
         # 画出防守球员和进攻球员
         cv2.circle(img_origin, (dfplayer_x, dfplayer_y), 5, (255, 0, 0))
         # cv2.circle(img_origin, (ofplayer_x, ofplayer_y), 5, (255, 0, 0))

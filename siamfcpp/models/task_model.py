@@ -121,7 +121,7 @@ class SiamTrack(ModuleBase):
 
         return out_list
 
-    def update_params(self):
+    def update_params(self, device):
         r"""
         Load model parameters
         """
@@ -131,7 +131,7 @@ class SiamTrack(ModuleBase):
             model_path = self._hyper_params["pretrain_model_path"]
             try:
                 state_dict = torch.load(model_path,
-                                        map_location=torch.device("cuda:0"))
+                                        map_location=torch.device("cuda:"+str(device)))
             except:
                 state_dict = torch.load(model_path,
                                         map_location=torch.device("cpu"))

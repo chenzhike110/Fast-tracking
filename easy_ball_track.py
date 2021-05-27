@@ -31,6 +31,38 @@ import os
 from math import sqrt,cos
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
+def get_distance(box1, box2):
+    ball_x, ball_y = box1[:, 0], box1[:, 1]
+    person_x, person_y = box2[:, 0], box2[:, 1]
+    distance = (ball_x-person_x)*(ball_x-person_x) + (ball_y-person_y)*(ball_y-person_y)
+    return distance
+
+def xywh_iou(box1, box2):
+    """
+        计算IOU
+    """
+
+    b1_x1, b1_x2 = box1[:, 0] , box1[:, 0] + box1[:, 2]
+    b1_y1, b1_y2 = box1[:, 1] , box1[:, 1] + box1[:, 3]
+    b2_x1, b2_x2 = box2[:, 0] , box2[:, 0] + box2[:, 2]
+    b2_y1, b2_y2 = box2[:, 1] , box2[:, 1] + box2[:, 3]
+
+
+    inter_rect_x1 = torch.max(b1_x1, b2_x1)
+    inter_rect_y1 = torch.max(b1_y1, b2_y1)
+    inter_rect_x2 = torch.min(b1_x2, b2_x2)
+    inter_rect_y2 = torch.min(b1_y2, b2_y2)
+
+    inter_area = torch.clamp(inter_rect_x2 - inter_rect_x1 + 1, min=0) * \
+                 torch.clamp(inter_rect_y2 - inter_rect_y1 + 1, min=0)
+
+    b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
+    # b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
+
+    iou = inter_area / (b1_area + 1e-16)
+
+    return iou
+
 def chack_wh(pred):
     w=pred[2]
     h=pred[3]
@@ -85,7 +117,6 @@ def ball_touch(track_it,track_object):
         v_now=np.array([track_it[-1][0]-track_it[-2][0],track_it[-1][1]-track_it[-2][1]])
         v_before=np.array([track_it[-2][0]-track_it[-3][0],track_it[-2][1]-track_it[-3][1]])
         cos=(v_now[0]*v_before[0]+v_now[1]*v_before[1])/(np.linalg.norm(v_now)*np.linalg.norm(v_before)+0.001)
-
         print(v_now,v_before)
         if (v_now==[0,0]).all() and (v_before==[0,0]).all():
             return False
@@ -122,7 +153,7 @@ def ball_track(balldataqueue,ballresultqueue,cap=None):
     pred_kalman_list = [] #store the pred of kalman
     is_pred_kalman = 0
 
-    Model = build_alex("siamfcpp/models/siamfcpp-alexnet-vot.pkl")
+    Model = build_alex("siamfcpp/models/siamfcpp-alexnet-vot.pkl",0)
     SiamTracker=SiamFCppTracker()
     SiamTracker.set_model(Model)
 

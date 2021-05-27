@@ -55,7 +55,7 @@ class SiamFCppTracker(object):
         context_amount=0.5,
         test_lr=0.52,
         penalty_k=0.04,
-        window_influence=0.21,
+        window_influence=0.3,
         windowing="cosine",
         z_size=127,
         x_size=303,

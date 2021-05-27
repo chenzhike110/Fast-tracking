@@ -13,7 +13,7 @@ class Multi_Tracker(torch.multiprocessing.Process):
         context_amount=0.5,
         test_lr=0.52,
         penalty_k=0.4,
-        window_influence=0.21,
+        window_influence=0.1,
         windowing="cosine",
         z_size=127,
         x_size=303,
@@ -25,8 +25,8 @@ class Multi_Tracker(torch.multiprocessing.Process):
     )
     def __init__(self, index, image, dataqueue, resultqueue):
         super(Multi_Tracker, self).__init__()
-        # self.model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
-        self.model = build_alex("siamfcpp/models/siamfcpp-alexnet-vot.pkl")
+        self.model = build_model("siamfcpp/models/siamfcpp-tinyconv-vot.pkl")
+        # self.model = build_alex("siamfcpp/models/siamfcpp-alexnet-vot.pkl", index%8)
         self.model.cuda()
         self.model.eval()
         self.index = index

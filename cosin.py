@@ -230,7 +230,7 @@ def mini_img(frame,yolo):
                 if w/h<2 and h/w<2:
                     S=S_1
         print(S)
-        if S<90:
+        if S<180:
             x_c,y_c=x_c-5,y_c-5
             w_c,h_c=w_c+10,h_c+10
         box=[x+x_c,y+y_c,w_c,h_c,c]

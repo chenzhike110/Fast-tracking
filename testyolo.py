@@ -9,7 +9,7 @@ import imutils
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("-v", "--video", type=str, default="../SRTP/video/DJI_0256.MP4",
+    ap.add_argument("-v", "--video", type=str, default="video/offside2_2.mp4",
                     help="path to input video file")
     args = vars(ap.parse_args())
     vs = cv2.VideoCapture(args["video"])
