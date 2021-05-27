@@ -19,9 +19,9 @@ project_root/
 ├── yolo # yolo detector
 │   ├── yolo.py # main structure for yolov4
 |	├── nets # net blocks for yolo
-|	|	├── CSPdarknet.py # darknet backbone
-|	|	├── yolov4.py # yolobody structure
-|	|	├── yolo_training.py # training yolo
+|	│  	├── CSPdarknet.py # darknet backbone
+|	│  	├── yolov4.py # yolobody structure
+|	│  	├── yolo_training.py # training yolo
 │   └── utils  # yolo utils
 ├── ball # ball detector
 │   ├── circle.py # penalty area detect
