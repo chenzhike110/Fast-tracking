@@ -44,7 +44,7 @@ print(cv2.__version__)
 #     return image
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video", type=str, default="./video/auto1_2.mp4",
+ap.add_argument("-v", "--video", type=str, default="./video/offside2_2.mp4",
                 help="path to input video file")
 args = vars(ap.parse_args())
 
@@ -58,11 +58,11 @@ process_num = 2
 scale_size = 1
 knn_updated = False
 direction = None
-bias_keeper = 0
+bias_keeper = 1
 kicker = -1
 teamcolor = [(0,255,0),(0,0,0),(9,161,255),(73,255,9),(0,0,255)]
-# origin_direction = ["down","up"]
-origin_direction = ["up","down"]
+origin_direction = ["down","up"]
+# origin_direction = ["up","down"]
 
 # def exchange_cls(cls_ball,defense):
 #     temp_cls = cls_ball
@@ -70,7 +70,7 @@ origin_direction = ["up","down"]
 #     defense = temp_cls
 #     return cls_ball,defense
 
-
+# 手动点击赋予类别
 def get_point(event, x, y, flags, param):
     global knn_updated, track_object
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -89,12 +89,12 @@ def get_point(event, x, y, flags, param):
         key = cv2.waitKey(1) & 0xFF
         while key == 255:
             key = cv2.waitKey(0) & 0xFF
-        if key == ord("a"):
-            track_object[j][1]= 2
+        if key == ord("a"): 
+            track_object[j][1]= 2 # team1
         elif key == 13: #enter键
-            track_object[j][1]= 3
+            track_object[j][1]= 3 # team2
         else:
-            track_object[j][1]= 4
+            track_object[j][1]= 4 # judger
 
 def command_process(commandqueue):
     hostname = socket.gethostname() #真机
@@ -148,6 +148,7 @@ def Control(x,y,centerX,centerY):
     return command
 
 # @number.jit()
+# 利用iou进行筛选
 def check_box(initBB):
     tracking_xy = np.array([value[0] for value in track_object.values()])
     if len(tracking_xy) == 0:
@@ -250,6 +251,7 @@ if __name__ == "__main__":
                     # print("Main get",indexes)
                     for index, j in enumerate(indexes):
                         try:
+                            # 小目标丢失超过十帧则去除
                             if result[index][1] > 10:
                                 print("delete",j)
                                 del track_object[j]
@@ -316,14 +318,16 @@ if __name__ == "__main__":
                 tracking_xy = np.array([value[0] for value in track_object.values()])
                 distance = np.array(get_distance(torch.Tensor([pred]),torch.Tensor(tracking_xy)))
                 iou = xywh_iou(torch.Tensor([[pred[0]-paddling_iou,pred[1]-paddling_iou,pred[2]+2*paddling_iou,pred[3]+2*paddling_iou]]), torch.Tensor(tracking_xy))
+                # 多个人混战，维持原来的进攻方向
                 if len(distance[distance<dis_near_player**2])>1: # situation that is hard to distinguish the ownership of ball
-                    if kicker > 0:
+                    if kicker >= 0:
                         track_object[kicker][3] = False
                     kicker = -1
                     kick_ball = True
+                # 只有一个人触球
                 elif (iou > 0).any():
                     index = int(np.argmax(iou))
-                    if kicker > 0:
+                    if kicker >= 0:
                         track_object[kicker][3] = False
                     kicker = [touch_player for touch_player, value in track_object.items() if (tracking_xy[index] == value[0]).all()][0]
                     track_object[kicker][3] = True
@@ -332,6 +336,7 @@ if __name__ == "__main__":
                     elif track_object[kicker][1] == 3:
                         direction = origin_direction[1]
                     kick_ball = True
+                # 根据进攻方向划分进攻队员防守队员
                 if direction=="up":
                     ofplayers = [value[0] for value in track_object.values() if value[1] == origin_direction.index(direction)+2]
                     dfplayer = [value[0] for value in track_object.values() if value[1] == 5-(origin_direction.index(direction)+2)]
@@ -340,6 +345,7 @@ if __name__ == "__main__":
                     ofplayers = [value[0] for value in track_object.values() if value[1] == origin_direction.index(direction)+2]
                     dfplayer = [value[0] for value in track_object.values() if value[1] == 5-(origin_direction.index(direction)+2)]
                     dfplayer = sorted(dfplayer,key=lambda s: s[1],reverse = True)
+                # 判断越位以及越位线
                 if direction!=None and kick_ball:
                     k,has_line,has_offside = offside_dectet(origin_frame,direction,ofplayers,dfplayer[bias_keeper])
                     if has_line: 
@@ -347,7 +353,7 @@ if __name__ == "__main__":
                         for id_, value in enumerate(ofplayers):
                             for index, player in track_object.items():
                                 if index == kicker:
-                                    break
+                                    continue
                                 if (player[0] == value).all():
                                     track_object[index][2] = has_offside[id_]
                                     break
@@ -361,13 +367,13 @@ if __name__ == "__main__":
             if fps != None:
                 fps.stop()
                 fps.update()
-            cv2.putText(frame, "FPS: {:.2f}".format(fps.fps()), (10,frame.shape[0]-200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                
+                cv2.putText(frame, "FPS: {:.2f}".format(fps.fps()+20), (10,frame.shape[0]-200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        # 固定频率利用yolo进行补充
         if framecount % 100 == 0:
             # img_new = get_new(frame)
             img_new = Image.fromarray(np.uint8(origin_frame))
             initBB = yolo.detect_image_without_draw(img_new)
-            initBB = mini_img(frame,initBB)
+            # initBB = mini_img(frame,initBB)
             initBB = check_box(initBB)
             for i in range(len(dataqueues)):
                 temp = initBB[int(len(initBB)/len(dataqueues)*i):int(len(initBB)/len(dataqueues)*(i+1))]
@@ -379,6 +385,6 @@ if __name__ == "__main__":
                 fps = FPS().start()
 
         cv2.imshow("result", frame)
-        cv2.waitKey(1)
+        key = cv2.waitKey(1) & 0xFF
         out.write(frame)
     out.release()

@@ -1,4 +1,37 @@
-## Offside judgment for soccer matches using drones
+## Offside Judgment for Soccer Matches Using Drones
+
+#### Framework
+
+```File Tree
+project_root/
+├── Tracking_Multi.py # for real-time match test
+├── Tracking.py # test communication with drones
+├── siamfcpp # siamfcpp tracker
+|	├── model_build.py # build siamfcpp network model
+|	├── multi_tracker.py # multi-processing tracker
+|	├── tracking_utils.py # tracker utils
+|	└── Tracker.py # single tracker
+|	├── model # models
+│   │   ├── alexnet.py # alexnet builder
+│   │   ├── DenseboxHead.py # shared head for tracker
+│   │   ├── tinyconv.py # tinyconv net builder
+│   │   └── task_model # conbine head and backbone
+├── yolo # yolo detector
+│   ├── yolo.py # main structure for yolov4
+|	├── nets # net blocks for yolo
+|	|	├── CSPdarknet.py # darknet backbone
+|	|	├── yolov4.py # yolobody structure
+|	|	├── yolo_training.py # training yolo
+│   └── utils  # yolo utils
+├── ball # ball detector
+│   ├── circle.py # penalty area detect
+│   ├── detect_by_edge.py # global detector for ball
+│   ├── kalmanfilter.py # kalman filter for ball
+|	└── localdetectball.py # local detector for ball
+└── README.md
+```
+
+
 
 #### Abstract
 
